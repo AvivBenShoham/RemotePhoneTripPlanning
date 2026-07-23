@@ -104,6 +104,15 @@ for everyone signed in and survive reloads.
   database-level write access, per the open-within-the-group rules above). If you
   later want deletion enforced by the database itself, that's a small rules
   addition — ask and it can be added.
+- **Live notifications:** when someone else posts, you get a browser notification
+  (e.g. *"Karol · Day 5"*) plus a tap-to-open in-page toast. The browser asks for
+  notification permission once, the first time you open or post in a chat; if you
+  decline (or the browser doesn't support it), the in-page toast still shows.
+  Notifications only fire for genuinely new messages from other people — never for
+  your own, never for the existing backlog, and they stay quiet if you're already
+  looking at that open thread. (Works while the page is open in a tab, including a
+  background tab; it isn't full push-when-closed — that would need Firebase Cloud
+  Messaging.)
 - **Offline / preview:** with no live backend (the in-chat preview, or before the
   API key is set) the panel shows a short "needs the live page" note instead of a
   composer, matching how maps and sync already degrade.

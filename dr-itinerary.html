@@ -182,6 +182,14 @@
   .chatsend{flex:0 0 auto;background:var(--turq);color:#fff;border:0;border-radius:10px;width:40px;height:40px;font-size:1.05rem;cursor:pointer;font-family:inherit}
   .chatsend:active{transform:scale(.96)}
   .chatoffline{font-size:.82rem;color:var(--muted);padding:12px;text-align:center;font-style:italic;border-top:1px solid var(--line)}
+  /* ---- new-message toasts (in-page fallback / companion to OS notifications) ---- */
+  .toastwrap{position:fixed;left:0;right:0;bottom:78px;z-index:1500;display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none;padding:0 12px}
+  .toast{pointer-events:auto;max-width:440px;width:100%;background:var(--ink);color:#fff;border-radius:12px;padding:10px 13px;
+    box-shadow:var(--shadow);font-size:.85rem;display:flex;gap:10px;align-items:flex-start;cursor:pointer;opacity:0;transform:translateY(10px);transition:.2s}
+  .toast.show{opacity:1;transform:none}
+  .toast .tname{font-weight:700;margin-bottom:1px}
+  .toast .ttext{opacity:.9;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+  .toast .tclose{margin-left:auto;opacity:.7;font-weight:700;padding-left:6px}
 </style>
 </head>
 <body>
@@ -235,6 +243,7 @@
   </div>
   <div class="foot">Maps © OpenStreetMap contributors · markers are exact; the line connects stops in order (straight-line). Tap “open in Google Maps” for live road navigation.<br>Tap <b>Important Notes</b> for the reasoning behind the route.</div>
 </div>
+<div class="toastwrap" id="toastwrap"></div>
 <button class="notesbtn" onclick="openPanel()">💡 Important Notes</button>
 <div class="overlay" id="overlay" onclick="closePanel()"></div>
 <aside class="panel" id="panel">
@@ -659,15 +668,20 @@ function wireChat(){
   chatWired=true;
   days.forEach(d=>{
     const ref=chatRef.child(d.id);
-    ref.on('child_added',s=>{chatCache[d.id]=chatCache[d.id]||{};chatCache[d.id][s.key]=s.val()||{};patchChat(d.id);});
+    ref.on('child_added',s=>{
+      chatCache[d.id]=chatCache[d.id]||{};chatCache[d.id][s.key]=s.val()||{};patchChat(d.id);
+      const m=chatCache[d.id][s.key];
+      if(chatPrimed[d.id] && !isOwnMsg(m)) announceMsg(d.id,m);   // only after backlog, never own messages
+    });
     ref.on('child_changed',s=>{chatCache[d.id]=chatCache[d.id]||{};chatCache[d.id][s.key]=s.val()||{};patchChat(d.id);});
     ref.on('child_removed',s=>{if(chatCache[d.id])delete chatCache[d.id][s.key];patchChat(d.id);});
+    ref.once('value',()=>{chatPrimed[d.id]=true;});               // backlog loaded → later adds are "new"
   });
 }
 function toggleChat(dayId){
   const box=document.getElementById('chat-'+dayId);if(!box)return;
   const open=box.classList.toggle('open');openChats[dayId]=open;
-  if(open){patchChat(dayId);const ta=document.getElementById('chatinput-'+dayId);if(ta)setTimeout(()=>ta.focus(),60);}
+  if(open){ensureNotifyPermission();patchChat(dayId);const ta=document.getElementById('chatinput-'+dayId);if(ta)setTimeout(()=>ta.focus(),60);}
 }
 function chatAutosize(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,120)+'px';}
 function chatKey(e,dayId){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg(dayId);}}
@@ -675,6 +689,7 @@ function sendMsg(dayId){
   if(!remoteReady||!chatRef)return;
   const ta=document.getElementById('chatinput-'+dayId);if(!ta)return;
   const text=(ta.value||'').trim();if(!text)return;
+  ensureNotifyPermission();
   const u=currentUserObj();
   const msg={uid:u?u.uid:'anon',name:currentName()||'Someone',text:text.slice(0,2000),
     ts:(typeof firebase!=='undefined'&&firebase.database&&firebase.database.ServerValue)?firebase.database.ServerValue.TIMESTAMP:Date.now()};
@@ -687,6 +702,65 @@ function deleteMsg(dayId,msgId){
   if(!isAviv()||!chatRef)return;
   if(!confirm('Delete this message?'))return;
   chatRef.child(dayId).child(msgId).remove().catch(()=>{});
+}
+
+/* ---- live push of new messages: OS notification + in-page toast ----
+   A message is "new" only after a day's thread has finished its initial load
+   (chatPrimed), and is never announced back to its own author. The OS
+   notification is asked for once, on a user gesture (opening/sending a chat),
+   and gracefully degrades to the in-page toast if denied or unsupported. */
+const chatPrimed={};              // {dayId:true} once the initial backlog has loaded
+let notifyAsked=false;
+function notifySupported(){return typeof window!=='undefined' && 'Notification' in window;}
+function ensureNotifyPermission(){
+  if(notifyAsked||!notifySupported())return;
+  notifyAsked=true;
+  if(Notification.permission!=='default')return;
+  try{const r=Notification.requestPermission();if(r&&r.then)r.catch(()=>{});}catch(e){}
+}
+function isOwnMsg(m){
+  const u=currentUserObj();
+  if(u&&m&&m.uid)return m.uid===u.uid;
+  const me=currentName();
+  return !!me && !!m && (m.name||'').toLowerCase()===me.toLowerCase();
+}
+function dayById(id){return days.find(d=>d.id===id);}
+function focusChat(dayId){
+  const box=document.getElementById('chat-'+dayId);
+  if(!box)return;
+  box.classList.add('open');openChats[dayId]=true;patchChat(dayId);
+  try{box.scrollIntoView({behavior:'smooth',block:'center'});}catch(e){}
+}
+function announceMsg(dayId,m){
+  const d=dayById(dayId),who=cap(m.name||'Someone'),title=who+(d?' · '+d.n:'');
+  const body=(m.text||'').replace(/\s+/g,' ').slice(0,140);
+  /* if they're already looking at this open thread, the message is visible — stay quiet */
+  const viewing=document.visibilityState==='visible' && openChats[dayId] && (!document.hasFocus||document.hasFocus());
+  if(viewing)return;
+  showToast(dayId,title,body);
+  if(notifySupported() && Notification.permission==='granted'){
+    try{const n=new Notification(title,{body,tag:'chat-'+dayId});
+      n.onclick=function(){try{window.focus();}catch(e){}focusChat(dayId);n.close();};
+    }catch(e){}
+  }
+}
+let toastSeq=0;
+function showToast(dayId,title,body){
+  const wrap=document.getElementById('toastwrap');if(!wrap)return;
+  const el=document.createElement('div');el.className='toast';el.id='toast'+(++toastSeq);
+  el.innerHTML='<span>💬</span><div style="min-width:0"><div class="tname">'+esc(title)+'</div>'+
+    '<div class="ttext">'+esc(body)+'</div></div><span class="tclose">✕</span>';
+  el.onclick=function(ev){
+    if(ev.target&&ev.target.classList.contains('tclose')){removeToast(el);return;}
+    focusChat(dayId);removeToast(el);
+  };
+  wrap.appendChild(el);
+  requestAnimationFrame(()=>el.classList.add('show'));
+  setTimeout(()=>removeToast(el),6000);
+}
+function removeToast(el){
+  if(!el)return;el.classList.remove('show');
+  setTimeout(()=>{if(el.parentNode)el.parentNode.removeChild(el);},200);
 }
 
 /* ---- sign-in gate (real Firebase Authentication) ----
