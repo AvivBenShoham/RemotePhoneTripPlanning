@@ -141,10 +141,39 @@
   .marker-pin.start{background:#2f8f6b}.marker-pin.end{background:#e5533f}
   .marker-pin span{transform:rotate(45deg);color:#fff;font-size:12px;font-weight:700}
   .leaflet-container{font:inherit}
+  /* ---- login gate ---- */
+  .loginwrap{position:fixed;inset:0;z-index:2000;background:linear-gradient(135deg,var(--turq) 0%,var(--turq-d) 55%,#046d67 100%);
+    display:flex;align-items:center;justify-content:center;padding:20px}
+  .loginwrap.hidden{display:none}
+  .logincard{background:#fff;border-radius:20px;box-shadow:var(--shadow);padding:26px 22px;width:min(360px,100%);text-align:center}
+  .loginemoji{font-size:2.4rem;line-height:1}
+  .logincard h2{margin-top:8px;font-size:1.35rem}
+  .loginsub{font-size:.84rem;color:var(--muted);margin:6px 0 8px}
+  .logincard label{display:block;text-align:left;font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:14px}
+  .logincard input{width:100%;margin-top:5px;border:1px solid var(--line);border-radius:10px;padding:11px;font-size:.95rem;font-family:inherit;background:#fff}
+  .logincard input:focus{outline:2px solid rgba(10,169,160,.3);border-color:var(--turq)}
+  .loginerr{color:var(--coral-d);font-size:.8rem;min-height:1.1em;margin-top:11px;font-weight:600}
+  .loginbtn{margin-top:8px;width:100%;background:var(--coral);color:#fff;border:0;border-radius:12px;padding:13px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit}
+  .loginbtn:active{transform:scale(.98)}
+  .logoutbtn{position:absolute;right:14px;top:14px;z-index:2;background:rgba(0,0,0,.18);color:#fff;border:1px solid rgba(255,255,255,.3);
+    border-radius:20px;padding:6px 12px;font-size:.72rem;font-weight:600;cursor:pointer;font-family:inherit}
+  .logoutbtn:active{transform:scale(.97)}
 </style>
 </head>
 <body>
+<div class="loginwrap" id="loginwrap">
+  <form class="logincard" onsubmit="return tryLogin(event)">
+    <div class="loginemoji">🌴</div>
+    <h2>Dominican Republic</h2>
+    <div class="loginsub">Sign in to view &amp; edit the shared itinerary</div>
+    <label>Name<input id="loginName" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Aviv or Karol"></label>
+    <label>Password<input id="loginPass" type="password" autocomplete="current-password" placeholder="Password"></label>
+    <div class="loginerr" id="loginErr"></div>
+    <button type="submit" class="loginbtn">Enter →</button>
+  </form>
+</div>
 <header class="hero">
+  <button class="logoutbtn" id="logoutbtn" onclick="logout()" style="display:none">Log out</button>
   <div class="wrap">
     <h1>🌴 Dominican Republic</h1>
     <div class="sub">A high-energy 11-day loop for two · Aug 11 – 21, 2026</div>
@@ -203,6 +232,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <!-- Firebase (compat build: keeps everything in global scope for the inline onclick handlers) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
 const days=[
@@ -318,31 +348,40 @@ const NIGHTLY_DEFAULT=60;
 const LS_KEY="dr_itin_v3";
 
 /* ============================================================================
-   SHARED SYNC CONFIG  ——  paste your Firebase project settings below.
-   Until real keys are in place the app runs exactly as before (this-device-only
-   via localStorage). Once filled in, everyone who opens the page shares one live
-   copy of the data. See README.md for the 5-minute setup.
+   SHARED SYNC + SIGN-IN CONFIG
+   Paste your project's public Web API Key below (Firebase console → Project
+   settings → General → "Web API Key"). It is NOT a secret — it only identifies
+   the project; access is enforced by Firebase Authentication + database rules.
+   The other values are already filled in from your database. See README.md for
+   the accounts + rules setup.
    ============================================================================ */
 const FIREBASE_CONFIG = {
-  // For a Realtime Database with public rules, the URL is all the SDK needs.
+  apiKey:      "AIzaSyDzGWF278_tf3R4A1O9PrE7jgfgZw4CtJc",
+  authDomain:  "tripvisualize.firebaseapp.com",
+  projectId:   "tripvisualize",
   databaseURL: "https://tripvisualize-default-rtdb.europe-west1.firebasedatabase.app/"
 };
 const TRIP_ID = "dr2026";                 // change to start a fresh, separate trip
 const DB_PATH = "trips/" + TRIP_ID;       // all shared state lives under this node
+const EMAIL_DOMAIN = "tripvisualize.app"; // names map to <name>@<EMAIL_DOMAIN> for Firebase Auth
 
 const defaultStore={opt:{beachhop:"moron",slowbeach:"coson",night:"strip"},book:{},acc:{},todo:{}};
 let store=JSON.parse(JSON.stringify(defaultStore));
 try{const raw=localStorage.getItem(LS_KEY);if(raw)store=Object.assign(store,JSON.parse(raw));}catch(e){}
 
 /* ---- Firebase init (guarded like the Leaflet check: falls back cleanly) ---- */
-let dbRef=null, remoteReady=false;
+let dbRef=null, remoteReady=false, auth=null, authReady=false;
 try{
   if(typeof firebase!=='undefined' && FIREBASE_CONFIG.databaseURL.indexOf('PASTE')===-1){
     firebase.initializeApp(FIREBASE_CONFIG);
     dbRef=firebase.database().ref(DB_PATH);
     remoteReady=true;
+    if(firebase.auth && FIREBASE_CONFIG.apiKey.indexOf('PASTE')===-1){
+      auth=firebase.auth();
+      authReady=true;
+    }
   }
-}catch(e){remoteReady=false;dbRef=null;}
+}catch(e){remoteReady=false;dbRef=null;authReady=false;auth=null;}
 
 /* order-independent serialization so an echo compares equal regardless of key order */
 function stableStr(o){
@@ -525,16 +564,66 @@ function renderTodo(){
 }
 function toggleTodo(id){store.todo[id]=!store.todo[id];save();renderTodo();}
 
-build();
+/* ---- sign-in gate (real Firebase Authentication) ----
+   Passwords are NOT in this file — they live in Firebase and are verified by
+   Google. The database rules require a signed-in user, so nobody can read or
+   write the data without a valid account. A typed name maps to the Firebase
+   account <name>@EMAIL_DOMAIN; name & password are lowercased so case never
+   matters (create the Firebase users with lowercase passwords, 6+ chars). */
+function setLoginBusy(b){const btn=document.querySelector('.loginbtn');if(btn){btn.disabled=b;btn.textContent=b?'Signing in…':'Enter →';}}
+function tryLogin(ev){
+  if(ev)ev.preventDefault();
+  const err=document.getElementById('loginErr');
+  const n=(document.getElementById('loginName').value||'').trim().toLowerCase();
+  const p=(document.getElementById('loginPass').value||'').trim().toLowerCase();
+  if(!authReady){err.textContent="Sign-in isn't configured yet — see README.";return false;}
+  if(!n||!p){err.textContent="Enter your name and password.";return false;}
+  err.textContent="";setLoginBusy(true);
+  auth.signInWithEmailAndPassword(n+"@"+EMAIL_DOMAIN,p)
+    .catch(()=>{                                    // success is handled by onAuthStateChanged
+      setLoginBusy(false);
+      err.textContent="That name and password don't match.";
+      document.getElementById('loginPass').value="";
+      document.getElementById('loginPass').focus();
+    });
+  return false;
+}
+function logout(){if(authReady&&auth){auth.signOut().catch(()=>{});}else{location.reload();}}
 
-/* ---- live shared sync: paint from local cache first, then follow remote ---- */
-if(remoteReady){
-  dbRef.on('value',snap=>{
-    const val=snap.val();
-    if(val===null){writeRemote();return;}          // first run: seed the node from local state
-    if(stableStr(val)===lastWrittenJSON)return;      // ignore the echo of our own write
-    applyRemote(val);
-  });
+let appStarted=false;
+function startApp(){
+  if(appStarted)return; appStarted=true;
+  build();
+  /* live shared sync: paint from local cache first, then follow remote */
+  if(remoteReady){
+    dbRef.on('value',snap=>{
+      const val=snap.val();
+      if(val===null){writeRemote();return;}          // first run: seed the node from local state
+      if(stableStr(val)===lastWrittenJSON)return;      // ignore the echo of our own write
+      applyRemote(val);
+    });
+  }
+}
+function enterApp(name){
+  document.getElementById('loginwrap').classList.add('hidden');
+  const lo=document.getElementById('logoutbtn');
+  lo.textContent='Log out'+(name?' ('+name.charAt(0).toUpperCase()+name.slice(1)+')':'');
+  lo.style.display='block';
+  startApp();
+}
+function showLogin(){
+  setLoginBusy(false);
+  document.getElementById('loginwrap').classList.remove('hidden');
+  document.getElementById('logoutbtn').style.display='none';
+  const nm=document.getElementById('loginName'); if(nm)nm.focus();
+}
+if(authReady){
+  /* Firebase persists the session, so returning users skip the form. */
+  auth.onAuthStateChanged(u=>{ if(u){enterApp((u.email||'').split('@')[0]);} else {showLogin();} });
+}else{
+  /* No auth configured (chat preview / offline / API key not set yet):
+     run without the gate so the itinerary is still viewable locally. */
+  enterApp();
 }
 
 function openPanel(){document.getElementById('panel').classList.add('open');document.getElementById('overlay').classList.add('open');}
