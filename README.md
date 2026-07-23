@@ -86,6 +86,42 @@ capitalization never matters.
 > open even to someone who has the URL. The one public value in the file (the Web
 > API Key) grants nothing on its own.
 
+## Live weather (AccuWeather + Open-Meteo)
+
+Each day at one of the three trip locations — **Las Terrenas** (Days 1–3),
+**Bayahibe** (Days 4–6), **Punta Cana** (Days 7–9) — shows a weather card with
+temperature, sky (cloudy vs. sunny), rain chance, and **storm probability**. The
+data is **fetched live on every page load** through a source cascade, best first:
+
+1. **AccuWeather** (free tier) — used when a key is set and the date is within
+   its 5-day forecast window. It's the only source with a real
+   *thunderstorm probability %*, which is what the storm chip shows.
+2. **Open-Meteo** (free, no key) — reaches ~16 days ahead, so it fills the days
+   6–16 out and is the automatic fallback if AccuWeather is unset, over quota, or
+   blocked by the browser.
+3. **Typical-August baseline** (from AccuWeather's monthly pages) — shown for any
+   date still beyond the live window.
+
+A badge on each card names the source in play, and the **AccuWeather →** link
+opens that location's monthly page to cross-check.
+
+### Enabling AccuWeather (optional, ~2 minutes)
+
+The page works out of the box on Open-Meteo. To turn on the richer AccuWeather
+source:
+
+1. Register (free) at <https://developer.accuweather.com> → **My Apps** → *Add a
+   new App* → copy its **API Key**. The free *Core Weather Limited Trial* plan
+   allows **50 calls/day**; this page uses **3 per load** (one per location).
+2. Paste the key into `ACCUWEATHER_API_KEY` near the top of the `<script>` in
+   `dr-itinerary.html`. Leave it blank to stay on Open-Meteo only.
+
+> **Note on the key:** a client-side key is visible in the page source. The
+> free-trial key grants only read access to forecasts and can be rotated or
+> deleted anytime in the AccuWeather console — treat it like the public Firebase
+> Web API key. The location keys (`awKey`) are the numbers already in each
+> AccuWeather URL, so no extra "find location" call is spent.
+
 ## Per-day chat
 
 Every day card has a collapsible **💬 Day chat** panel for notes, reminders, and
