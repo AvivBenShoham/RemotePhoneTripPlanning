@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dominican Republic — 11 Days</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<style>
+  :root{
+    --turq:#0aa9a0; --turq-d:#07837c; --coral:#ff6b57; --coral-d:#e5533f;
+    --sand:#f6efe4; --ink:#1f2d34; --muted:#5d6f78;
+    --gold:#f2b134; --sky:#eaf7f6; --line:#dfe8e8;
+    --book:#c9403a; --ahead:#e08a1e; --spot:#2f8f6b; --done:#2f8f6b;
+    --shadow:0 6px 22px rgba(20,50,55,.10); --shadow-l:0 2px 8px rgba(20,50,55,.07);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Segoe UI',system-ui,-apple-system,Roboto,Helvetica,sans-serif;
+    background:var(--sand);color:var(--ink);line-height:1.5;padding-bottom:70px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:720px;margin:0 auto;padding:0 14px}
+  header.hero{background:linear-gradient(135deg,var(--turq) 0%,var(--turq-d) 55%,#046d67 100%);
+    color:#fff;padding:30px 0 26px;position:relative;overflow:hidden}
+  header.hero::after{content:"";position:absolute;right:-40px;top:-40px;width:200px;height:200px;
+    background:radial-gradient(circle,rgba(255,255,255,.14),transparent 70%);border-radius:50%}
+  .hero h1{font-size:1.9rem;letter-spacing:.5px;margin-bottom:4px;font-weight:700}
+  .hero .sub{opacity:.92;font-size:.98rem;margin-bottom:18px}
+  .statgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:6px}
+  .stat{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);border-radius:14px;
+    padding:12px 10px;text-align:center;backdrop-filter:blur(3px)}
+  .stat .n{font-size:1.5rem;font-weight:700;line-height:1}
+  .stat .l{font-size:.72rem;opacity:.9;margin-top:5px;text-transform:uppercase;letter-spacing:.5px}
+  .route-pill{display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:16px;
+    background:rgba(0,0,0,.14);border-radius:30px;padding:9px 14px;font-size:.82rem;font-weight:600}
+  .route-pill .arw{opacity:.7;font-weight:400}
+  .livewrap{margin-top:14px;background:rgba(255,255,255,.16);border-radius:14px;padding:12px 14px;
+    display:flex;justify-content:space-between;align-items:center;border:1px solid rgba(255,255,255,.25)}
+  .livewrap .lbl{font-size:.78rem;text-transform:uppercase;letter-spacing:.5px;opacity:.9}
+  .livewrap .amt{font-size:1.6rem;font-weight:700}
+  .livewrap .amt small{font-size:.8rem;font-weight:500;opacity:.85}
+  .legend{background:#fff;border-radius:16px;box-shadow:var(--shadow-l);padding:14px;margin:16px 0}
+  .legend h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px}
+  .legrow{display:flex;flex-wrap:wrap;gap:8px 14px}
+  .legitem{display:flex;align-items:center;gap:6px;font-size:.82rem}
+  .tag{display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:700;padding:3px 9px;border-radius:20px;color:#fff;white-space:nowrap}
+  .tag.book{background:var(--book)} .tag.ahead{background:var(--ahead)} .tag.spot{background:var(--spot)}
+  .ico{width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;font-size:.85rem;flex:0 0 auto}
+  .ico.act{background:var(--sky);color:var(--turq-d)}
+  .ico.cost{background:#fff6e3;color:#b9821a}
+  .day{background:#fff;border-radius:18px;box-shadow:var(--shadow);margin:16px 0;overflow:hidden}
+  .dayhead{padding:16px 16px 14px;background:linear-gradient(100deg,#fff,#fbfaf6);border-bottom:1px solid var(--line);
+    display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .dayhead .dnum{font-size:.72rem;font-weight:700;color:var(--coral);text-transform:uppercase;letter-spacing:.8px}
+  .dayhead h2{font-size:1.15rem;margin-top:3px}
+  .dayhead .date{font-size:.82rem;color:var(--muted);margin-top:2px}
+  .daycost{text-align:right;flex:0 0 auto}
+  .daycost .dc{font-size:1.15rem;font-weight:700;color:var(--turq-d)}
+  .daycost .dcl{font-size:.66rem;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .lmap{width:100%;height:240px;background:#dfeeed;border-bottom:1px solid var(--line);z-index:0}
+  .maplink{display:block;text-align:center;font-size:.78rem;padding:8px;background:#f3f8f8;color:var(--turq-d);
+    text-decoration:none;font-weight:600;border-bottom:1px solid var(--line)}
+  .maplink:active{background:#e7f1f1}
+  .stops{padding:6px 14px 4px}
+  .stop{display:flex;gap:11px;padding:12px 0;border-bottom:1px dashed var(--line)}
+  .stop:last-child{border-bottom:0}
+  .stime{flex:0 0 52px;font-size:.78rem;font-weight:700;color:var(--turq-d);padding-top:1px}
+  .sbody{flex:1;min-width:0}
+  .sbody .stitle{font-weight:600;font-size:.96rem;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .sbody .sdesc{font-size:.85rem;color:var(--muted);margin-top:3px}
+  .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:7px;align-items:center}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:.75rem;padding:3px 8px;border-radius:8px;background:#f4f7f7;color:var(--muted);font-weight:500}
+  .chip.money{background:#fff6e3;color:#a9761a;font-weight:700}
+  .chip .ico{width:16px;height:16px;font-size:.72rem}
+  .leg{display:flex;gap:11px;align-items:center;padding:3px 0}
+  .leg .rail{flex:0 0 52px;display:flex;justify-content:center}
+  .leg .rail .dot{width:2px;height:26px;background:linear-gradient(var(--coral),#ffd0c7)}
+  .legpill{display:inline-flex;align-items:center;gap:7px;font-size:.78rem;background:#fff0ec;color:var(--coral-d);border-radius:20px;padding:5px 11px;font-weight:600;flex-wrap:wrap}
+  .legpill .op{color:var(--muted);font-weight:500}
+  .booktrack{margin-top:9px;border:1.5px solid var(--ahead);border-radius:12px;background:#fffaf0;overflow:hidden}
+  .booktrack.isdone{border-color:var(--done);background:#f0f9f4}
+  .bthead{display:flex;align-items:center;gap:8px;padding:8px 11px;cursor:pointer;font-size:.8rem;font-weight:700}
+  .bthead .status{margin-left:auto;font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:20px;background:var(--ahead);color:#fff}
+  .booktrack.isdone .status{background:var(--done)}
+  .btbody{padding:0 11px 11px;display:none}
+  .booktrack.open .btbody{display:block}
+  .btrow{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
+  .btrow label{flex:1;min-width:120px;font-size:.72rem;color:var(--muted);font-weight:600}
+  .btrow input{width:100%;margin-top:3px;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:.85rem;font-family:inherit;background:#fff}
+  .btrow input:focus{outline:2px solid rgba(10,169,160,.3);border-color:var(--turq)}
+  .switch{display:flex;align-items:center;gap:9px;margin-top:4px}
+  .toggle{position:relative;width:46px;height:26px;flex:0 0 auto}
+  .toggle input{opacity:0;width:0;height:0}
+  .slider{position:absolute;inset:0;background:#cbd5d5;border-radius:30px;transition:.2s;cursor:pointer}
+  .slider::before{content:"";position:absolute;width:20px;height:20px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+  .toggle input:checked + .slider{background:var(--done)}
+  .toggle input:checked + .slider::before{transform:translateX(20px)}
+  .switch .swlbl{font-size:.82rem;font-weight:600}
+  .acc{margin:2px 14px 14px;border:1.5px dashed var(--turq);border-radius:12px;background:#f4fbfa;overflow:hidden}
+  .acchead{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:.8rem;font-weight:700;color:var(--turq-d);flex-wrap:wrap}
+  .accbody{padding:0 12px 12px}
+  .acc.booked{border-style:solid;background:#f0f9f4;border-color:var(--done)}
+  .acc.booked .acchead{color:#227a52}
+  .opt{margin:10px 0;border:1.5px dashed var(--gold);border-radius:14px;background:#fffdf5;overflow:hidden}
+  .opthead{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:.8rem;font-weight:700;color:#a9761a;background:#fff8e6}
+  .optbtns{display:flex;gap:8px;padding:10px 12px;flex-wrap:wrap}
+  .optbtn{flex:1;min-width:130px;border:1.5px solid var(--line);background:#fff;border-radius:11px;padding:10px;cursor:pointer;text-align:left;transition:.15s;font-family:inherit}
+  .optbtn:active{transform:scale(.99)}
+  .optbtn.on{border-color:var(--turq);background:var(--sky);box-shadow:0 0 0 2px rgba(10,169,160,.15)}
+  .optbtn .obn{font-weight:700;font-size:.9rem;display:flex;justify-content:space-between;align-items:center;gap:6px}
+  .optbtn .obc{font-size:.76rem;color:var(--muted);margin-top:4px}
+  .optbtn .obp{font-size:.78rem;font-weight:700;color:var(--turq-d);margin-top:6px}
+  .rec{font-size:.62rem;background:var(--turq);color:#fff;padding:2px 6px;border-radius:10px;font-weight:700;letter-spacing:.3px}
+  .optnote{font-size:.76rem;color:var(--muted);padding:0 12px 11px;font-style:italic}
+  .notesbtn{position:fixed;left:16px;bottom:16px;z-index:1000;background:var(--coral);color:#fff;border:0;border-radius:30px;
+    padding:13px 18px;font-weight:700;font-size:.9rem;cursor:pointer;box-shadow:0 6px 18px rgba(255,107,87,.45);font-family:inherit;display:flex;align-items:center;gap:7px}
+  .notesbtn:active{transform:scale(.97)}
+  .overlay{position:fixed;inset:0;background:rgba(15,35,38,.55);z-index:1001;opacity:0;pointer-events:none;transition:.25s}
+  .overlay.open{opacity:1;pointer-events:auto}
+  .panel{position:fixed;top:0;right:-100%;width:min(420px,88%);height:100%;background:var(--sand);z-index:1002;
+    transition:right .28s cubic-bezier(.4,0,.2,1);overflow-y:auto;box-shadow:-8px 0 30px rgba(0,0,0,.25)}
+  .panel.open{right:0}
+  .panelhead{background:var(--turq-d);color:#fff;padding:20px 18px;position:sticky;top:0;z-index:2}
+  .panelhead h2{font-size:1.2rem}
+  .panelhead .x{position:absolute;right:14px;top:16px;background:rgba(255,255,255,.2);border:0;color:#fff;width:32px;height:32px;border-radius:50%;font-size:1.1rem;cursor:pointer;line-height:1}
+  .noteblk{background:#fff;margin:14px;border-radius:14px;padding:14px 16px;box-shadow:var(--shadow-l);border-left:4px solid var(--turq)}
+  .noteblk.warn{border-left-color:var(--coral)} .noteblk.gold{border-left-color:var(--gold)}
+  .noteblk h4{font-size:.95rem;margin-bottom:6px;display:flex;align-items:center;gap:7px}
+  .noteblk p{font-size:.85rem;color:#3f5058} .noteblk p + p{margin-top:7px}
+  .foot{text-align:center;font-size:.76rem;color:var(--muted);padding:22px 16px 6px}
+  .warnbanner{background:#fff4e0;border:1px solid #f2d59a;border-radius:12px;padding:11px 13px;font-size:.82rem;color:#8a6516;margin:16px 0;display:flex;gap:9px;align-items:flex-start}
+  .savenote{background:#eef8f2;border:1px solid #bfe3ce;border-radius:12px;padding:10px 13px;font-size:.8rem;color:#2c6647;margin:0 0 16px;display:flex;gap:9px;align-items:flex-start}
+  .todo{background:#fff;border-radius:18px;box-shadow:var(--shadow);margin:16px 0;overflow:hidden}
+  .todohead{background:linear-gradient(100deg,var(--turq),var(--turq-d));color:#fff;font-weight:700;font-size:1.05rem;padding:15px 18px}
+  .todoitem{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s}
+  .todoitem:last-child{border-bottom:0}
+  .todoitem:active{background:#f6fbfa}
+  .todocheck{flex:0 0 auto;width:24px;height:24px;border:2px solid #cbd5d5;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:.9rem;color:#fff;transition:.15s}
+  .todoitem.done .todocheck{background:var(--done);border-color:var(--done)}
+  .todotext{font-size:.95rem;font-weight:600}
+  .todoitem.done .todotext{text-decoration:line-through;color:var(--muted);font-weight:500}
+  .marker-pin{background:var(--turq-d);width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+    border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}
+  .marker-pin.start{background:#2f8f6b}.marker-pin.end{background:#e5533f}
+  .marker-pin span{transform:rotate(45deg);color:#fff;font-size:12px;font-weight:700}
+  .leaflet-container{font:inherit}
+</style>
+</head>
+<body>
+<header class="hero">
+  <div class="wrap">
+    <h1>🌴 Dominican Republic</h1>
+    <div class="sub">A high-energy 11-day loop for two · Aug 11 – 21, 2026</div>
+    <div class="statgrid">
+      <div class="stat"><div class="n">11</div><div class="l">Days</div></div>
+      <div class="stat"><div class="n">10</div><div class="l">Nights</div></div>
+      <div class="stat"><div class="n">4</div><div class="l">Regions</div></div>
+    </div>
+    <div class="route-pill">📍 Santo Domingo <span class="arw">→</span> Samaná <span class="arw">→</span>
+      Bayahibe / Saona <span class="arw">→</span> Punta Cana <span class="arw">→</span> Santo Domingo</div>
+    <div class="livewrap"><div class="lbl">Total Trip Cost</div>
+      <div class="amt">$<span id="grandtotal">0</span> <small>USD</small></div></div>
+  </div>
+</header>
+<div class="wrap">
+  <div class="savenote"><span>🔗</span><div>Booking details, accommodation & to-dos <b>sync live for everyone</b> — edit on any phone or laptop and the change shows up for the whole group within a second. (Live sync and the maps need the hosted page online; inside the chat preview it falls back to saving on this device only.)</div></div>
+  <div class="warnbanner"><span>⚠️</span><div>Prices are USD for the couple. Only <b>Scape Park ($120pp)</b> and taxi rates are your confirmed quotes; the rest are estimates (⚠ = unverified). Toggle optionals, mark things booked, add accommodation — every total updates live.</div></div>
+  <div class="legend"><h3>Legend</h3>
+    <div class="legrow" style="margin-bottom:10px">
+      <span class="legitem"><span class="tag spot">📍 Buy on the spot</span></span>
+      <span class="legitem"><span class="tag ahead">🕓 Buy ahead</span></span>
+      <span class="legitem"><span class="tag book">✅ Booked</span></span>
+    </div>
+    <div class="legrow">
+      <span class="legitem"><span class="ico act">🏝️</span> Activity</span>
+      <span class="legitem"><span class="ico cost">💵</span> Cost</span>
+      <span class="legitem"><span class="rec">PICK</span> My pick</span>
+    </div>
+  </div>
+  <div id="days"></div>
+
+  <div class="todo" id="todo">
+    <div class="todohead">✅ Trip To-Do</div>
+    <div id="todolist"></div>
+  </div>
+  <div class="foot">Maps © OpenStreetMap contributors · markers are exact; the line connects stops in order (straight-line). Tap “open in Google Maps” for live road navigation.<br>Tap <b>Important Notes</b> for the reasoning behind the route.</div>
+</div>
+<button class="notesbtn" onclick="openPanel()">💡 Important Notes</button>
+<div class="overlay" id="overlay" onclick="closePanel()"></div>
+<aside class="panel" id="panel">
+  <div class="panelhead"><h2>💡 Important Notes</h2><button class="x" onclick="closePanel()">✕</button></div>
+  <div class="noteblk warn"><h4>🌦️ Check the weather — it will change</h4><p>This plan is built for typical August conditions, but the forecast <b>will shift</b> before you travel. A few days out, check the forecast and any tropical advisories (the US National Hurricane Center, nhc.noaa.gov, is the authority) and re-check each morning on the ground.</p><p>Rain rarely cancels a bus, but it can slow the roads and scrub a boat day. Keep the outdoor days (El Limón, Saona, the dive, Scape Park) flexible enough to swap with an indoor/town day if a storm lands — and if anything tropical is genuinely brewing, lean on the Aug 20 buffer and consider moving the SD return a day earlier.</p></div>
+  <div class="noteblk warn"><h4>🧳 Check-in / check-out & luggage aren't in the schedule</h4><p>The hourly times don't include hotel check-in or check-out — those depend on each place (often check-in ~2–3pm, check-out ~11am–12pm). Build them in yourself, especially on the travel days.</p><p>On days you leave a town, remember you may need to <b>go back to collect your luggage</b> after check-out before heading to the bus — or ask the hotel to hold your bags so you can enjoy the morning and grab them on the way out. Confirm each place's exact times when you book.</p></div>
+  <div class="noteblk gold"><h4>📱 TikTok input</h4><p>Beaches other travelers most often flagged as the area's most beautiful: <b>Playa Ermitaño</b>, <b>Playa Rincón</b>, and <b>Isla Saona</b>. Ermitaño and Saona are both in this plan (Day 2 optional and Day 6). Rincón was dropped because reaching it takes several guaguas plus a boat — worth knowing if you'd rather swap it back in.</p></div>
+  <div class="noteblk gold"><h4>🧭 North first, off the plane</h4><p>Samaná is a dead-end peninsula that only connects through Santo Domingo. Doing it first pays the backtrack <b>once</b>, not twice.</p></div>
+  <div class="noteblk"><h4>🛬 Front-loaded travel</h4><p>The hardest legs sit early while you're fresh. The back half is a clean eastward line with short, cheap hops.</p></div>
+  <div class="noteblk warn"><h4>🛡️ The buffer day (Aug 20)</h4><p>You sleep in Santo Domingo the night <b>before</b> the 11:01 AM flight — never bussing to the airport that morning. Expreso Bávaro can't be pre-booked (cash, day-of), so a delayed bus has no fallback. The buffer removes the biggest risk to your flight.</p></div>
+  <div class="noteblk warn"><h4>📅 Saona on a holiday</h4><p>Aug 16 is Día de la Restauración, on a Sunday — peak crowds. If your operator agrees, <b>swap</b>: Saona Sat 15, dive Sun 16. Small-group dive boats barely feel the holiday.</p></div>
+  <div class="noteblk"><h4>🏖️ Why keep 3 nights north?</h4><p>Samaná owns three things the east can't: <b>El Limón</b>, a real <b>over-water sunset</b> (Punta Cana faces east), and genuine <b>town nightlife</b>. The slow beach day is the rest you'll want mid-sprint.</p></div>
+  <div class="noteblk gold"><h4>🚗 Buses over a car</h4><p>Your route is a straight spine on cheap A/C express buses. A car means paid parking, aggressive driving, and idle time while you're on boats.</p></div>
+  <div class="noteblk warn"><h4>🌊 Sargassum & the Aug 19 beach</h4><p>Bayahibe, Saona & Macao are among the cleanest; Bávaro is the weak link. It shifts overnight — check local beach-photo groups and pivot to Macao or the Ojos Indígenas lagoons if needed.</p></div>
+  <div class="noteblk"><h4>🎫 Mandatory E-Ticket</h4><p>Free entry <i>and</i> exit form at <b>eticket.migracion.gob.do</b> — copycat sites asking for a card are scams. Do the exit form on the Aug 20 buffer day.</p></div>
+  <div style="height:20px"></div>
+</aside>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Firebase (compat build: keeps everything in global scope for the inline onclick handlers) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<script>
+const days=[
+  {id:"d1",n:"Day 1",date:"Tue · Aug 11",title:"Land SDQ → Las Terrenas",stay:"Las Terrenas",
+   pts:[[18.4297,-69.6690,"SDQ Airport"],[18.4585,-69.9540,"Asotrapusa Stn (SD)"],[19.3087,-69.5443,"Las Terrenas"]],
+   stops:[
+     {t:"06:46",title:"Land at SDQ",desc:"Immigration + bags. Change money / ATM for pesos before leaving.",act:"🛬"},
+     {leg:"Taxi airport → Asotrapusa station (in Santo Domingo)",op:"Street taxi",cost:55,mode:"🚕"},
+     {t:"09:30",title:"Bus to Las Terrenas",desc:"~3 hrs. Buy at counter, cash. Miss it → 11:00 backup.",act:"🚌",cost:18,spot:true,op:"Asotrapusa"},
+     {t:"12:30",title:"Check in & nap",desc:"Recover from the red-eye before the beach.",act:"🛏️",cost:10},
+     {t:"16:00",title:"Playa Punta Popy",desc:"Relaxed public beach right in town, walkable from the center — a good spot to unwind after the flight.",act:"🏖️",cost:0,free:true},
+     {t:"19:30",title:"Dinner · Pueblo de los Pescadores",desc:"Restaurant and bar strip on the seafront.",act:"🍹",cost:36}]},
+  {id:"d2",n:"Day 2",date:"Wed · Aug 12",title:"El Limón + optional beach hop",stay:"Las Terrenas",
+   pts:[[19.3087,-69.5443,"Las Terrenas"],[19.2833,-69.4167,"El Limón"],[19.2670,-69.4520,"Playa Morón"]],
+   stops:[
+     {leg:"Guagua from Calle Duarte (by the cemetery)",op:"Local guagua",cost:2,mode:"🚐"},
+     {t:"08:00",title:"El Limón Waterfall",desc:"A ~40–50m waterfall that drops in a single white ribbon into a deep, cold, jade-green pool you can swim in. The trail winds through rainforest past cocoa and coffee farms — muddy in the May–Nov wet season. Reach it on foot (40–60 min) or by horse from a parada; going early means it's cooler and quieter before the midday groups.",act:"💦",cost:24,spot:true},
+     {t:"11:30",title:"Lunch at the parada",desc:"Meal often included with the guide/horse fee.",act:"🍽️",cost:16},
+     {optional:"beachhop"},
+     {leg:"Guagua back to Las Terrenas",op:"Local guagua",cost:5,mode:"🚐"},
+     {t:"19:30",title:"Dinner in town",desc:"Your pick along the main strip.",act:"🍽️",cost:18}]},
+  {id:"d3",n:"Day 3",date:"Thu · Aug 13",title:"Slow beach day — your choice",stay:"Las Terrenas",
+   pts:[[19.3087,-69.5443,"Las Terrenas"],[19.3280,-69.5760,"Playa Bonita"],[19.3060,-69.6360,"Playa Cosón"]],
+   stops:[
+     {t:"—",title:"One genuinely slow day",desc:"Only unhurried day before tomorrow's 3-leg transfer. Sleep in, pick a beach by mood.",act:"😎",cost:0,free:true},
+     {optional:"slowbeach"},
+     {t:"20:00",title:"Relaxed dinner + early pack",desc:"Big travel day tomorrow — bag mostly ready tonight.",act:"🧳",cost:20}]},
+  {id:"d4",n:"Day 4",date:"Fri · Aug 14",title:"Las Terrenas → Bayahibe",stay:"Bayahibe",
+   pts:[[19.3087,-69.5443,"Las Terrenas"],[18.4585,-69.9540,"Santo Domingo"],[18.4273,-68.9728,"La Romana"],[18.3607,-68.8419,"Bayahibe"]],
+   stops:[
+     {leg:"Express bus → Santo Domingo (~3 hrs). Take the 08:30.",op:"Asotrapusa",cost:18,mode:"🚌"},
+     {leg:"Taxi across SD to eastern bus zone (Parque Enriquillo)",op:"Street taxi",cost:10,mode:"🚕"},
+     {leg:"Bus toward La Romana",op:"Expreso / guagua",cost:12,mode:"🚌"},
+     {leg:"Guagua La Romana → Bayahibe (last ones thin out early evening)",op:"Local guagua",cost:4,mode:"🚐"},
+     {t:"15:30",title:"Arrive Bayahibe",desc:"Fishing village on the south coast; the base for the dive and Saona trips.",act:"⚓",cost:0,free:true},
+     {t:"16:30",title:"Confirm tomorrow's dive in person",desc:"Settle certification status and payment at the shop.",act:"🤿",cost:0},
+     {t:"18:45",title:"Sunset on the waterfront + dinner",desc:"The waterfront faces roughly west. Dinner in the village.",act:"🌅",cost:18}]},
+  {id:"d5",n:"Day 5",date:"Sat · Aug 15",title:"Bayahibe Diving",stay:"Bayahibe",swap:true,
+   pts:[[18.3607,-68.8419,"Bayahibe"],[18.3200,-68.7900,"Dive sites (reef+wreck)"],[18.3470,-68.8180,"Playa Dominicus"]],
+   stops:[
+     {t:"08:00",title:"Dive shop — briefing & gear",desc:"Certified: reef + Atlantic Princess wreck. Not certified: Discovery Dive.",act:"🤿",cost:0},
+     {leg:"Dive boat out to the sites (5–30 min)",op:"Dive operator",cost:0,mode:"⛴️"},
+     {t:"08:45",title:"Two dives · Cotubanama NP",desc:"Dive sites in the national park include shallow reefs and two wrecks (Atlantic Princess, St. George). ⚠ Confirm price on WhatsApp; shown as a range until you lock it.",act:"🐠",cost:220,range:true,
+       book:{key:"dive",label:"Bayahibe dive",defAgency:"",placeAg:"e.g. Coral Point Diving",defPrice:220}},
+     {t:"12:30",title:"Back, logbooks & lunch",desc:"Lunch in the village.",act:"🍽️",cost:20},
+     {t:"14:30",title:"Playa Dominicus",desc:"White sand and clear, shallow turquoise water with a reef just offshore and no undertow — calm and swimmable. The first Blue Flag-certified beach in the Caribbean (since 2004). About 10–15 min from Bayahibe.",act:"🏝️",cost:0,free:true},
+     {t:"19:00",title:"Dinner, early night",desc:"Saona is an early start tomorrow.",act:"🍽️",cost:15}]},
+  {id:"d6",n:"Day 6",date:"Sun · Aug 16",title:"Isla Saona Excursion",stay:"Bayahibe",swap:true,
+   pts:[[18.3607,-68.8419,"Bayahibe"],[18.2350,-68.8100,"Natural Pool"],[18.1370,-68.6890,"Isla Saona"]],
+   stops:[
+     {t:"08:30",title:"Meet your Saona group",desc:"Bayahibe pickup — no long Punta Cana transfer since you're already here.",act:"📸",cost:0},
+     {leg:"Catamaran out to the island",op:"Saona operator",cost:0,mode:"⛵"},
+     {t:"10:30",title:"Natural Pool stop",desc:"Shallow offshore sandbar; starfish are present — don't lift them out of the water.",act:"⭐",cost:0},
+     {t:"11:30",title:"Saona · buffet · open bar",desc:"~3.5 hrs on the island — wide white-sand beaches, clear shallow water and rows of palms, inside Cotubanama National Park. Buffet lunch and open bar are standard on most tours.",act:"🏝️",cost:170,
+       book:{key:"saona",label:"Isla Saona tour",defAgency:"",placeAg:"e.g. Pac Tour Excursions",defPrice:170}},
+     {leg:"Speedboat back to Bayahibe",op:"Saona operator",cost:0,mode:"⛴️"},
+     {t:"17:00",title:"Back in Bayahibe · dinner",desc:"Dinner in the village.",act:"🍽️",cost:15}]},
+  {id:"d7",n:"Day 7",date:"Mon · Aug 17",title:"Bayahibe → Punta Cana + night",stay:"Punta Cana / Bávaro",
+   pts:[[18.3607,-68.8419,"Bayahibe"],[18.4273,-68.9728,"La Romana"],[18.6800,-68.4500,"Bávaro"],[18.7360,-68.4290,"Playa Macao"]],
+   stops:[
+     {leg:"Guagua Bayahibe → La Romana",op:"Local guagua",cost:4,mode:"🚐"},
+     {leg:"Bus La Romana → Punta Cana (~1 hr)",op:"Expreso / Sichoprola",cost:8,mode:"🚌"},
+     {t:"11:30",title:"Arrive, drop bags, lunch",desc:"Settle into the Bávaro area.",act:"🍽️",cost:10},
+     {leg:"Taxi/guagua to Playa Macao",op:"Local taxi",cost:28,mode:"🚕"},
+     {t:"13:30",title:"Playa Macao",desc:"A wide, natural public beach not walled off by resorts — sand, open water and a rugged feel. It has real waves and an undertow, so swim with care; surf lessons are available.",act:"🏄",cost:0,free:true},
+     {t:"19:30",title:"Dinner · El Cortecito strip",desc:"Local, walkable, cheap.",act:"🍽️",cost:20},
+     {optional:"night"}]},
+  {id:"d8",n:"Day 8",date:"Tue · Aug 18",title:"Scape Park · Cap Cana",stay:"Punta Cana / Bávaro",
+   pts:[[18.6800,-68.4500,"Bávaro"],[18.5030,-68.3810,"Scape Park"]],
+   stops:[
+     {leg:"Park transfer or taxi to Cap Cana (⚠ ask if transfer's bundled)",op:"Scape Park / taxi",cost:55,mode:"🚕"},
+     {t:"08:30",title:"Ziplines first",desc:"A set of cliff- and canopy-strung ziplines — one line runs along the cliff face with an ocean view. Cooler and quieter early.",act:"🧗",cost:0},
+     {t:"11:00",title:"Iguabonita cave",desc:"A short guided walk into a lit limestone cave.",act:"🕳️",cost:0},
+     {t:"13:30",title:"Hoyo Azul cenote swim",desc:"The park's centerpiece: a deep, vivid-turquoise cenote at the foot of a tall limestone cliff, reached by a ~15-min walk through tropical forest on a path with stairs. Life jackets are provided. Swimsuit under your clothes and closed shoes recommended.",act:"💙",cost:240,
+       book:{key:"scape",label:"Scape Park (2 × $120)",defAgency:"Scape Park (direct)",placeAg:"Agency / reseller",defPrice:240}},
+     {t:"17:00",title:"Return, rest, dinner",desc:"Return to Bávaro; dinner.",act:"🍽️",cost:18}]},
+  {id:"d9",n:"Day 9",date:"Wed · Aug 19",title:"Free Punta Cana day",stay:"Punta Cana / Bávaro",
+   pts:[[18.6800,-68.4500,"Playa Bávaro"],[18.7360,-68.4290,"Playa Macao"],[18.5230,-68.3660,"Ojos Indígenas"]],
+   stops:[
+     {t:"09:00",title:"Beach — check conditions first",desc:"Peek at local beach-photo groups. Clean → Bávaro. Sargassum → Macao or the lagoons.",act:"🌊",cost:0,free:true},
+     {t:"13:00",title:"Long lazy lunch",desc:"No schedule today.",act:"🍽️",cost:24},
+     {t:"18:00",title:"Pack + pull tomorrow's cash",desc:"Get RD$800+ for bus + taxi. Confirm bus times by phone.",act:"🏧",cost:0},
+     {t:"20:00",title:"Last Punta Cana dinner",desc:"Send-off meal.",act:"🍽️",cost:20}]},
+  {id:"d10",n:"Day 10",date:"Thu · Aug 20",title:"→ Santo Domingo (buffer)",stay:"Santo Domingo",
+   pts:[[18.6800,-68.4500,"Bávaro (Friusa)"],[18.4585,-69.9540,"Santo Domingo"],[18.4820,-69.8590,"Los Tres Ojos"],[18.4732,-69.8829,"Zona Colonial"]],
+   stops:[
+     {leg:"Taxi to Bávaro bus station (Friusa)",op:"Street taxi",cost:30,mode:"🚕"},
+     {t:"07:00",title:"Expreso Bávaro → Santo Domingo",desc:"~3–3.5 hrs. Cash, day-of, arrive ~45 min early. Backup 09:00.",act:"🚌",cost:14,spot:true,op:"Expreso Bávaro"},
+     {t:"11:30",title:"Complete your EXIT E-Ticket",desc:"eticket.migracion.gob.do — official site only. Today, not at the airport.",act:"🎫",cost:0},
+     {t:"12:30",title:"Los Tres Ojos",desc:"Open-air limestone caverns with lagoons, in Mirador del Este park. Low entry fee.",act:"🕳️",cost:3,spot:true},
+     {t:"15:00",title:"Zona Colonial",desc:"The cobblestone historic core and a UNESCO site — the oldest continuously inhabited European settlement in the Americas. Walk Calle Las Damas (the first paved street in the Americas), the Alcázar de Colón (Diego Columbus's palace, now a museum), and Fortaleza Ozama. Lively with cafés, bars and music into the evening. Some sites charge a small entry fee.",act:"🏛️",cost:8,spot:true},
+     {t:"18:30",title:"Dinner · Plaza España",desc:"Restaurants around the plaza. You're in Santo Domingo the night before the flight.",act:"🥂",cost:25}]},
+  {id:"d11",n:"Day 11",date:"Fri · Aug 21",title:"Fly home ❤️",stay:null,
+   pts:[[18.4732,-69.8829,"Zona Colonial"],[18.4297,-69.6690,"SDQ Airport"]],
+   stops:[
+     {leg:"Taxi to SDQ (~25–40 min)",op:"Street taxi",cost:50,mode:"🚕"},
+     {t:"08:00",title:"Check in · AM 655",desc:"Exit E-Ticket QR ready.",act:"✈️",cost:0},
+     {t:"11:01",title:"Depart SDQ → MEX",desc:"Lands Mexico City T2 13:45. ¡Con el corazón lleno!",act:"🛫",cost:0}]},
+];
+const optionals={
+  beachhop:{label:"Optional beach hop (same road)",note:"Both sit off the El Limón–Las Terrenas road. Skip either freely.",def:"moron",
+    choices:{moron:{name:"Playa Morón",rec:true,cost:10,desc:"A quiet, wild cove — golden sand, clear turquoise water, backed by dense coconut palms. No reef at the shore, but you can snorkel the rock formations at either end. Has a small beach restaurant. Reached ~15–20 min from El Limón down a rough unpaved track."},
+      ermitano:{name:"Playa Ermitaño",cost:25,desc:"One of the most beautiful in the area and genuinely crystal-clear — baby-blue, shallow water you can wade far out into, with fish and rock formations. White-gold sand framed by green hills; often nearly deserted because there's no road in. No facilities, so bring water and shoes for the rocky entry; reached by a short boat from Playa Morón, sea permitting."},
+      skip:{name:"Skip it",cost:0,desc:"Return to Las Terrenas after the waterfall."}}},
+  slowbeach:{label:"Choose your slow beach",note:"Pick on the day. Both face roughly west/northwest, so both can catch the sunset over the water.",def:"coson",
+    choices:{bonita:{name:"Playa Bonita",cost:8,desc:"A calm, palm-lined stretch ~10 min from town by motoconcho, or walkable. A few small hotels along it, but easygoing and rarely packed."},
+      coson:{name:"Playa Cosón",rec:true,cost:35,desc:"A long, open, largely undeveloped beach ~15–20 min west of town, with clear water and a handful of beach restaurants. Its openness makes it the better sunset spot. Farther out, so the taxi costs a bit more."}}},
+  night:{label:"Punta Cana night out",note:"Confirm Monday shows first (wa.me/18094661111).",def:"strip",
+    choices:{strip:{name:"El Cortecito strip",rec:true,cost:25,desc:"Local bars, walkable, cheap. Plenty after a travel day."},
+      coco:{name:"Coco Bongo",cost:170,desc:"⚠ Show-club with performances; ticket ~$85pp. Confirm it operates on a Monday before planning around it."}}}
+};
+const NIGHTLY_DEFAULT=60;
+const LS_KEY="dr_itin_v3";
+
+/* ============================================================================
+   SHARED SYNC CONFIG  ——  paste your Firebase project settings below.
+   Until real keys are in place the app runs exactly as before (this-device-only
+   via localStorage). Once filled in, everyone who opens the page shares one live
+   copy of the data. See README.md for the 5-minute setup.
+   ============================================================================ */
+const FIREBASE_CONFIG = {
+  // For a Realtime Database with public rules, the URL is all the SDK needs.
+  databaseURL: "https://tripvisualize-default-rtdb.europe-west1.firebasedatabase.app/"
+};
+const TRIP_ID = "dr2026";                 // change to start a fresh, separate trip
+const DB_PATH = "trips/" + TRIP_ID;       // all shared state lives under this node
+
+const defaultStore={opt:{beachhop:"moron",slowbeach:"coson",night:"strip"},book:{},acc:{},todo:{}};
+let store=JSON.parse(JSON.stringify(defaultStore));
+try{const raw=localStorage.getItem(LS_KEY);if(raw)store=Object.assign(store,JSON.parse(raw));}catch(e){}
+
+/* ---- Firebase init (guarded like the Leaflet check: falls back cleanly) ---- */
+let dbRef=null, remoteReady=false;
+try{
+  if(typeof firebase!=='undefined' && FIREBASE_CONFIG.databaseURL.indexOf('PASTE')===-1){
+    firebase.initializeApp(FIREBASE_CONFIG);
+    dbRef=firebase.database().ref(DB_PATH);
+    remoteReady=true;
+  }
+}catch(e){remoteReady=false;dbRef=null;}
+
+/* order-independent serialization so an echo compares equal regardless of key order */
+function stableStr(o){
+  if(o===null||typeof o!=='object')return JSON.stringify(o);
+  if(Array.isArray(o))return '['+o.map(stableStr).join(',')+']';
+  return '{'+Object.keys(o).sort().map(k=>JSON.stringify(k)+':'+stableStr(o[k])).join(',')+'}';
+}
+/* debounced whole-blob write; lastWrittenJSON lets the listener ignore our echo */
+let writeTimer=null, lastWrittenJSON=null;
+function writeRemote(){
+  if(!remoteReady)return;
+  clearTimeout(writeTimer);
+  writeTimer=setTimeout(()=>{
+    lastWrittenJSON=stableStr(store);
+    dbRef.set(store).catch(()=>{});
+  },400);
+}
+function save(){
+  try{localStorage.setItem(LS_KEY,JSON.stringify(store));}catch(e){}
+  writeRemote();
+}
+
+/* apply an incoming remote snapshot, without wiping a field being typed in */
+let pendingVal=null, blurHooked=false;
+function doApply(val){
+  store=Object.assign(JSON.parse(JSON.stringify(defaultStore)),val);
+  try{localStorage.setItem(LS_KEY,JSON.stringify(store));}catch(e){}
+  build();
+}
+function applyRemote(val){
+  const ae=document.activeElement;
+  if(ae && (ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')){
+    pendingVal=val;                       // newest remote state wins on blur
+    if(!blurHooked){
+      blurHooked=true;
+      ae.addEventListener('blur',function(){blurHooked=false;if(pendingVal!==null){const v=pendingVal;pendingVal=null;doApply(v);}},{once:true});
+    }
+  }else{
+    doApply(val);
+  }
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+/* accommodation nightly value used in totals: entered price if any, else default $60 (shown for every night with a stay) */
+function accNightly(d){if(!d.stay)return 0;const a=store.acc[d.id];return (a&&a.price!==''&&a.price!=null&&!isNaN(a.price))?Number(a.price):NIGHTLY_DEFAULT;}
+function dayCost(d){
+  let c=0;
+  d.stops.forEach(s=>{
+    if(s.optional!==undefined){c+=optionals[s.optional].choices[store.opt[s.optional]||optionals[s.optional].def].cost;}
+    else if(s.book){const st=store.book[s.book.key];c+=(st&&st.price!==''&&st.price!=null&&!isNaN(st.price))?Number(st.price):s.cost;}
+    else if(s.cost){c+=s.cost;}
+  });
+  c+=accNightly(d);
+  return c;
+}
+function gmapsDir(d){
+  const pts=d.pts;
+  const o=pts[0][0]+','+pts[0][1];
+  const dest=pts[pts.length-1][0]+','+pts[pts.length-1][1];
+  const wp=pts.slice(1,-1).map(p=>p[0]+','+p[1]).join('|');
+  let u='https://www.google.com/maps/dir/?api=1&origin='+o+'&destination='+dest+'&travelmode=driving';
+  if(wp)u+='&waypoints='+encodeURIComponent(wp);
+  return u;
+}
+function icoFor(m){return m||"🚌";}
+function renderLeg(s){return `<div class="leg"><div class="rail"><div class="dot"></div></div>
+  <div class="legpill">${icoFor(s.mode)} ${s.leg} ${s.op?`<span class="op">· ${s.op}</span>`:""}
+  ${s.cost>0?`<span class="chip money"><span class="ico cost">💵</span>$${s.cost}</span>`:`<span class="op">· incl.</span>`}</div></div>`;}
+function renderBookTrack(b){
+  const st=store.book[b.key]||{done:false,agency:b.defAgency||"",price:b.defPrice||""};
+  return `<div class="booktrack ${st.done?'isdone':''}" id="bt-${b.key}">
+    <div class="bthead" onclick="toggleBT('${b.key}')"><span>🎟️ ${b.label} — booking tracker</span>
+      <span class="status">${st.done?'✅ Booked':'🕓 Buy ahead'}</span></div>
+    <div class="btbody">
+      <div class="switch"><label class="toggle"><input type="checkbox" ${st.done?'checked':''} onchange="setBooked('${b.key}',this.checked)"><span class="slider"></span></label>
+        <span class="swlbl">Mark as booked & paid</span></div>
+      <div class="btrow">
+        <label>Agency / operator<input type="text" value="${esc(st.agency||'')}" placeholder="${b.placeAg||'Agency name'}" oninput="setBookField('${b.key}','agency',this.value)"></label>
+        <label>Price paid · couple (USD)<input type="number" inputmode="decimal" value="${st.price!==''&&st.price!=null?st.price:''}" placeholder="${b.defPrice||''}" oninput="setBookField('${b.key}','price',this.value)"></label>
+      </div>
+    </div></div>`;
+}
+function renderStop(s){
+  if(s.leg!==undefined)return renderLeg(s);
+  if(s.optional!==undefined)return renderOptional(s.optional);
+  const costHTML=s.cost>0?`<span class="chip money"><span class="ico cost">💵</span>$${s.cost}${s.range?" *":""}</span>`:"";
+  const tag=s.book?`<span class="tag ahead">🕓 Buy ahead</span>`:s.spot?`<span class="tag spot">📍 On the spot</span>`:s.free?`<span class="tag spot">📍 Free</span>`:"";
+  return `<div class="stop"><div class="stime">${s.t}</div>
+    <div class="sbody"><div class="stitle"><span class="ico act">${s.act||"📍"}</span> ${s.title} ${tag}</div>
+      <div class="sdesc">${s.desc||""}</div>
+      <div class="meta">${costHTML}${s.op?`<span class="chip">${s.op}</span>`:""}</div>
+      ${s.book?renderBookTrack(s.book):""}</div></div>`;
+}
+function renderOptional(key){
+  const o=optionals[key];const cur=store.opt[key]||o.def;
+  const btns=Object.entries(o.choices).map(([k,c])=>`<button class="optbtn ${k===cur?'on':''}" onclick="pickOpt('${key}','${k}')">
+    <div class="obn">${c.name} ${c.rec?'<span class="rec">PICK</span>':''}</div><div class="obc">${c.desc}</div>
+    <div class="obp">${c.cost>0?'$'+c.cost:'Free'}</div></button>`).join("");
+  return `<div class="opt" id="opt-${key}"><div class="opthead">🔀 ${o.label} — tap to choose</div>
+    <div class="optbtns">${btns}</div><div class="optnote">${o.note}</div></div>`;
+}
+function renderAcc(d){
+  if(!d.stay)return "";
+  const a=store.acc[d.id]||{booked:false,name:"",price:"",link:""};
+  const showing=(a.price!==''&&a.price!=null&&!isNaN(a.price))?('$'+Number(a.price)):('$'+NIGHTLY_DEFAULT+' (default)');
+  return `<div class="acc ${a.booked?'booked':''}" id="acc-${d.id}">
+    <div class="acchead">🏨 Accommodation — ${d.stay} · <span style="font-weight:600">${showing}/night</span><span style="margin-left:auto"></span>
+      <span class="switch" style="margin-top:0"><label class="toggle"><input type="checkbox" ${a.booked?'checked':''} onchange="setAccBooked('${d.id}',this.checked)"><span class="slider"></span></label>
+      <span class="swlbl">${a.booked?'Booked':'Not booked'}</span></span></div>
+    <div class="accbody">
+      <div class="btrow">
+        <label>Place name<input type="text" value="${esc(a.name||'')}" placeholder="Hotel / Airbnb name" oninput="setAccField('${d.id}','name',this.value)"></label>
+        <label>Price · night (USD)<input type="number" inputmode="decimal" value="${a.price!==''&&a.price!=null?a.price:''}" placeholder="${NIGHTLY_DEFAULT}" oninput="setAccField('${d.id}','price',this.value)"></label>
+      </div>
+      <div class="btrow"><label>Booking link<input type="url" value="${esc(a.link||'')}" placeholder="https://…" oninput="setAccField('${d.id}','link',this.value)"></label></div>
+      ${a.link?`<a class="maplink" style="border-radius:8px;margin-top:8px;border:1px solid var(--line)" href="${esc(a.link)}" target="_blank" rel="noopener">🔗 Open booking →</a>`:""}
+    </div></div>`;
+}
+function renderDay(d){
+  const swapBadge=d.swap?`<span class="tag ahead" style="margin-left:6px">🔁 swappable</span>`:"";
+  return `<div class="day">
+    <div class="dayhead"><div><div class="dnum">${d.n}${swapBadge}</div><h2>${d.title}</h2><div class="date">${d.date}</div></div>
+      <div class="daycost"><div class="dc" id="dc-${d.id}">$${dayCost(d)}</div><div class="dcl">day total</div></div></div>
+    <div id="map-${d.id}" class="lmap"></div>
+    <a class="maplink" href="${gmapsDir(d)}" target="_blank" rel="noopener">🗺️ Open this day's route in Google Maps →</a>
+    <div class="stops">${d.stops.map(renderStop).join("")}</div>
+    ${renderAcc(d)}</div>`;
+}
+function recalc(){let g=0;days.forEach(d=>{const c=dayCost(d);g+=c;const el=document.getElementById('dc-'+d.id);if(el)el.textContent='$'+c;});document.getElementById('grandtotal').textContent=g.toLocaleString();}
+
+/* ---- Leaflet maps ---- */
+const mapObjs={};
+function pinIcon(i,total){
+  const cls=i===0?'start':(i===total-1?'end':'');
+  return L.divIcon({className:'',html:`<div class="marker-pin ${cls}"><span>${i+1}</span></div>`,iconSize:[26,26],iconAnchor:[13,26]});
+}
+function initMaps(){
+  if(typeof L==='undefined')return; // offline / preview: leave placeholders
+  days.forEach(d=>{
+    const el=document.getElementById('map-'+d.id);
+    if(!el||mapObjs[d.id])return;
+    const latlngs=d.pts.map(p=>[p[0],p[1]]);
+    const map=L.map(el,{scrollWheelZoom:false,attributionControl:true}).fitBounds(latlngs,{padding:[30,30]});
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+    L.polyline(latlngs,{color:'#e5533f',weight:3,dashArray:'2 8',opacity:.85}).addTo(map);
+    d.pts.forEach((p,i)=>{L.marker([p[0],p[1]],{icon:pinIcon(i,d.pts.length)}).addTo(map).bindPopup('<b>'+(i+1)+'.</b> '+esc(p[2]));});
+    mapObjs[d.id]=map;
+    setTimeout(()=>map.invalidateSize(),200);
+  });
+}
+function destroyMaps(){Object.values(mapObjs).forEach(m=>{try{m.remove();}catch(e){}});for(const k in mapObjs)delete mapObjs[k];}
+
+/* ---- actions ---- */
+function pickOpt(k,v){store.opt[k]=v;save();const h=document.getElementById('opt-'+k);if(h)h.outerHTML=renderOptional(k);recalc();}
+function toggleBT(k){document.getElementById('bt-'+k).classList.toggle('open');}
+function setBooked(k,v){store.book[k]=store.book[k]||{};store.book[k].done=v;save();refreshBT(k);}
+function setBookField(k,f,v){store.book[k]=store.book[k]||{};store.book[k][f]=v;save();if(f==='price')recalc();}
+function refreshBT(k){const el=document.getElementById('bt-'+k);const open=el.classList.contains('open');let found;days.forEach(d=>d.stops.forEach(s=>{if(s.book&&s.book.key===k)found=s.book;}));el.outerHTML=renderBookTrack(found);const ne=document.getElementById('bt-'+k);if(open)ne.classList.add('open');}
+function setAccBooked(id,v){store.acc[id]=store.acc[id]||{};store.acc[id].booked=v;save();refreshAcc(id);recalc();}
+function setAccField(id,f,v){store.acc[id]=store.acc[id]||{};store.acc[id][f]=v;save();recalc();if(f==='link'||f==='price')refreshAcc(id);}
+function refreshAcc(id){const d=days.find(x=>x.id===id);const el=document.getElementById('acc-'+id);if(el)el.outerHTML=renderAcc(d);}
+function resetAll(){if(!confirm("Clear all shared booking, accommodation & to-do entries and reset optionals to the recommended picks?"))return;store=JSON.parse(JSON.stringify(defaultStore));save();build();}
+function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();}
+
+/* ---- To-Do checklist ---- */
+const todoItems=[
+  {id:"t1",label:"Book flights"},
+  {id:"t2",label:"Find the best area to sleep in Las Terrenas"},
+  {id:"t3",label:"Book hotels"},
+  {id:"t4",label:"Reserve activities"},
+  {id:"t5",label:"Do the entrance E-Ticket"},
+  {id:"t6",label:"Come with Karol's vibess"},
+];
+function renderTodo(){
+  document.getElementById('todolist').innerHTML=todoItems.map(it=>{
+    const done=!!store.todo[it.id];
+    return `<div class="todoitem ${done?'done':''}" onclick="toggleTodo('${it.id}')">
+      <div class="todocheck">${done?'✓':''}</div><div class="todotext">${it.label}</div></div>`;
+  }).join("");
+}
+function toggleTodo(id){store.todo[id]=!store.todo[id];save();renderTodo();}
+
+build();
+
+/* ---- live shared sync: paint from local cache first, then follow remote ---- */
+if(remoteReady){
+  dbRef.on('value',snap=>{
+    const val=snap.val();
+    if(val===null){writeRemote();return;}          // first run: seed the node from local state
+    if(stableStr(val)===lastWrittenJSON)return;      // ignore the echo of our own write
+    applyRemote(val);
+  });
+}
+
+function openPanel(){document.getElementById('panel').classList.add('open');document.getElementById('overlay').classList.add('open');}
+function closePanel(){document.getElementById('panel').classList.remove('open');document.getElementById('overlay').classList.remove('open');}
+</script>
+</body>
+</html>
