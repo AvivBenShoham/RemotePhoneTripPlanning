@@ -134,8 +134,15 @@
   .todoitem:active{background:#f6fbfa}
   .todocheck{flex:0 0 auto;width:24px;height:24px;border:2px solid #cbd5d5;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:.9rem;color:#fff;transition:.15s}
   .todoitem.done .todocheck{background:var(--done);border-color:var(--done)}
-  .todotext{font-size:.95rem;font-weight:600}
+  .todotext{font-size:.95rem;font-weight:600;flex:1}
   .todoitem.done .todotext{text-decoration:line-through;color:var(--muted);font-weight:500}
+  .todorm{flex:0 0 auto;margin-left:8px;background:none;border:0;color:var(--muted);font-size:1.35rem;line-height:1;width:30px;height:30px;border-radius:8px;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center}
+  .todorm:active{background:#fdece9;color:var(--coral-d)}
+  .todoadd{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line);background:#fafcfc}
+  .todoadd input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:16px;font-family:inherit;background:#fff}
+  .todoadd input:focus{outline:2px solid rgba(10,169,160,.3);border-color:var(--turq)}
+  .todoaddbtn{flex:0 0 auto;background:var(--turq);color:#fff;border:0;border-radius:8px;padding:0 16px;font-weight:700;font-size:.85rem;cursor:pointer;font-family:inherit}
+  .todoaddbtn:active{background:var(--turq-d)}
   .marker-pin{background:var(--turq-d);width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
     border:2px solid #fff;box-shadow:0 2px 5px rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center}
   .marker-pin.start{background:#2f8f6b}.marker-pin.end{background:#e5533f}
@@ -634,23 +641,57 @@ function refreshAcc(id){const d=days.find(x=>x.id===id);const el=document.getEle
 function resetAll(){if(!confirm("Clear all shared booking, accommodation & to-do entries and reset optionals to the recommended picks?"))return;store=JSON.parse(JSON.stringify(defaultStore));save();build();}
 function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();paintAllChats();try{if(typeof updateAlerts==='function')updateAlerts();}catch(e){}}
 
-/* ---- To-Do checklist ---- */
-const todoItems=[
-  {id:"t1",label:"Book flights"},
-  {id:"t2",label:"Find the best area to sleep in Las Terrenas"},
-  {id:"t3",label:"Book hotels"},
-  {id:"t4",label:"Reserve activities"},
-  {id:"t5",label:"Do the entrance E-Ticket"},
-  {id:"t6",label:"Come with Karol's vibess"},
+/* ---- To-Do checklist (shared & live: items live in store.todo, synced via Firebase) ----
+   store.todo is a map  id -> {label, done, ts}. ts gives a stable order.
+   Any signed-in trip member can toggle, add, or remove items. */
+const DEFAULT_TODO=[
+  "Book flights",
+  "Find the best area to sleep in Las Terrenas",
+  "Book hotels",
+  "Reserve activities",
+  "Do the entrance E-Ticket",
+  "Come with Karol's vibess",
 ];
-function renderTodo(){
-  document.getElementById('todolist').innerHTML=todoItems.map(it=>{
-    const done=!!store.todo[it.id];
-    return `<div class="todoitem ${done?'done':''}" onclick="toggleTodo('${it.id}')">
-      <div class="todocheck">${done?'✓':''}</div><div class="todotext">${it.label}</div></div>`;
-  }).join("");
+/* Seed a fresh trip and migrate the old {id:bool} format to {label,done,ts}. Idempotent. */
+function normalizeTodo(){
+  const t=store.todo||{};
+  const keys=Object.keys(t);
+  const isNew=keys.length>0 && keys.every(k=>t[k]&&typeof t[k]==='object'&&typeof t[k].label==='string');
+  if(isNew)return;
+  const seeded={};
+  DEFAULT_TODO.forEach((label,i)=>{
+    const id='t'+(i+1); const old=t[id];
+    const done=(typeof old==='boolean')?old:(old&&typeof old==='object'?!!old.done:false);
+    seeded[id]={label,done,ts:i};
+  });
+  const wasEmpty=keys.length===0;
+  store.todo=seeded;
+  if(wasEmpty)save();   // push the freshly seeded list so it reaches other clients
 }
-function toggleTodo(id){store.todo[id]=!store.todo[id];save();renderTodo();}
+function todoOrdered(){
+  return Object.keys(store.todo).map(id=>Object.assign({id},store.todo[id]))
+    .sort((a,b)=>(a.ts||0)-(b.ts||0));
+}
+function renderTodo(){
+  normalizeTodo();
+  const rows=todoOrdered().map(it=>`<div class="todoitem ${it.done?'done':''}" onclick="toggleTodo('${it.id}')">
+      <div class="todocheck">${it.done?'✓':''}</div><div class="todotext">${esc(it.label)}</div>
+      <button class="todorm" title="Remove" onclick="removeTodo('${it.id}',event)">×</button></div>`).join("");
+  const addRow=`<div class="todoadd">
+      <input type="text" id="todoAddInput" placeholder="Add a task…" onkeydown="if(event.key==='Enter'){event.preventDefault();addTodo();}">
+      <button class="todoaddbtn" onclick="addTodo()">Add</button></div>`;
+  document.getElementById('todolist').innerHTML=rows+addRow;
+}
+function toggleTodo(id){const it=store.todo[id];if(!it)return;it.done=!it.done;save();renderTodo();}
+function addTodo(){
+  const inp=document.getElementById('todoAddInput'); if(!inp)return;
+  const label=(inp.value||'').trim(); if(!label)return;
+  const id='t'+Date.now();
+  store.todo[id]={label,done:false,ts:Date.now()};
+  save();renderTodo();
+  const ni=document.getElementById('todoAddInput'); if(ni)ni.focus();
+}
+function removeTodo(id,ev){if(ev)ev.stopPropagation();delete store.todo[id];save();renderTodo();}
 
 /* ---- per-day chat (notes / reminders / debates) ----
    Each message is its own record under CHAT_PATH/<dayId>, written with push()
