@@ -67,6 +67,7 @@
   .wxsrc:active{opacity:.7}
   .wxstatus{font-size:.7rem;font-weight:700;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
   .wxlive{display:inline-flex;align-items:center;gap:4px;color:var(--spot);font-weight:800;letter-spacing:.3px}
+  .wxclim{display:inline-flex;align-items:center;gap:4px;color:var(--ahead);font-weight:800;letter-spacing:.3px}
   .wxkey{background:#fff;border:1px solid var(--line);border-radius:20px;padding:2px 8px;font-size:.68rem;font-weight:700;
     color:var(--turq-d);cursor:pointer;font-family:inherit}
   .wxkey.cta{background:var(--sky);border-color:var(--turq)}
@@ -90,8 +91,8 @@
   .wkhint{font-size:.66rem;color:var(--muted);padding:8px 0 6px;font-style:italic}
   .wkrow{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:.76rem}
   .wkrow:last-child{border-bottom:0}
-  .wkday{flex:0 0 68px;font-weight:700}
-  .wktemp{flex:0 0 58px;color:var(--muted);font-weight:600}
+  .wkrow.cur{background:var(--sky);margin:0 -11px;padding:7px 11px;border-radius:6px}
+  .wkday{flex:0 0 62px;font-weight:700}
   .wkmet{flex:1;min-width:0;color:var(--muted);font-size:.72rem;white-space:nowrap;overflow-x:auto}
   .wkscore{flex:0 0 auto;font-weight:800;border-radius:8px;padding:3px 8px;border:1px solid var(--line)}
   .stops{padding:6px 14px 4px}
@@ -481,11 +482,11 @@ let weatherFetched=false;   // run the load routine once per page load
 const openWeeks={};         // which "beach-day outlook" panels are expanded
 /* 30-minute client-side cache: skip the network entirely while a source's data
    is still fresh, so reopening/reloading the page doesn't burn API calls. */
-const WX_CACHE_KEY="dr_wx_cache_v1", WX_TTL=30*60*1000;
+const WX_CACHE_KEY="dr_wx_cache_v1", WX_TTL=30*60*1000, HIST_TTL=30*24*60*60*1000; // 30 min / 30 days
 let wxCache={};
 try{const _r=localStorage.getItem(WX_CACHE_KEY);if(_r)wxCache=JSON.parse(_r)||{};}catch(e){}
 function persistWxCache(){try{localStorage.setItem(WX_CACHE_KEY,JSON.stringify(wxCache));}catch(e){}}
-function wxCacheFresh(loc,src){const c=wxCache[loc]&&wxCache[loc][src];return !!(c&&c.ts&&(Date.now()-c.ts)<WX_TTL);}
+function wxCacheFresh(loc,src,ttl){const c=wxCache[loc]&&wxCache[loc][src];return !!(c&&c.ts&&(Date.now()-c.ts)<(ttl||WX_TTL));}
 function wxCacheAgeMin(loc,src){const c=wxCache[loc]&&wxCache[loc][src];return c&&c.ts?Math.round((Date.now()-c.ts)/60000):null;}
 function wxCacheSet(loc,src,entries){wxCache[loc]=wxCache[loc]||{};wxCache[loc][src]={ts:Date.now(),entries};persistWxCache();}
 
@@ -703,11 +704,15 @@ function beachLabel(sc){
   if(sc>=35)return["🌥️","Iffy — could go either way","mod"];
   return["🌧️","Poor — skip the beach","high"];
 }
-/* build the chips + header from live data if we have it, else the baseline */
+/* build the chips + header. Three data modes, resolved per date:
+   forecast (AccuWeather / Open-Meteo, ≤16 days), climatology (10-yr average for
+   this exact calendar date, used when no forecast reaches it), or the hand-typed
+   baseline (only if even the historical fetch failed). */
 function wxContent(key,iso){
   const w=weather[key];
   const e=liveWx[key]&&liveWx[key][iso];
   if(e&&e.tmax!=null){
+    const clim=e.src==="climatology";
     const cMax=Math.round(e.tmax),cMin=Math.round(e.tmin);
     const fMax=Math.round(e.tmax*9/5+32),fMin=Math.round(e.tmin*9/5+32);
     let sIco,sTxt,rainIco,rainTxt,stormIco,stormTxt,lvl;
@@ -724,43 +729,50 @@ function wxContent(key,iso){
       [sIco,sTxt]=wxSky(e.code);
       const pr=e.pprob,mm=(e.psum!=null)?Math.round(e.psum*10)/10:null;
       rainIco=((pr!=null&&pr>=50)||(mm!=null&&mm>=3))?"🌧️":"🌦️";
-      rainTxt=(pr!=null?pr+"% chance":"showers")+(mm!=null?" · "+mm+" mm":"");
-      const thunder=e.code>=95;
-      lvl=thunder?"high":(pr!=null&&pr>=55?"mod":"low");
-      stormIco=thunder?"⛈️":"🌩️";
-      stormTxt=thunder?"Thunderstorms in the forecast":(pr!=null&&pr>=55?"Storms possible":"Storm unlikely");
+      rainTxt=clim?(pr!=null?pr+"% of yrs wet":"—")+(mm!=null?` · ~${mm}mm`:"")
+                  :(pr!=null?pr+"% chance":"showers")+(mm!=null?` · ${mm} mm`:"");
+      const ts=e.tstorm;
+      if(ts!=null){
+        lvl=ts>=50?"high":ts>=25?"mod":"low";
+        stormIco=ts>=25?"⛈️":"🌩️";
+        stormTxt=clim?ts+"% of yrs stormy":ts+"% storm chance";
+      }else{
+        const thunder=e.code>=95;
+        lvl=thunder?"high":(pr!=null&&pr>=55?"mod":"low");
+        stormIco=thunder?"⛈️":"🌩️";
+        stormTxt=thunder?"Thunderstorms in the forecast":(pr!=null&&pr>=55?"Storms possible":"Storm unlikely");
+      }
     }
-    const srcName=e.src==="accuweather"?"AccuWeather":"Open-Meteo";
+    const srcName=e.src==="accuweather"?"AccuWeather":(clim?"climatology":"Open-Meteo");
+    const badge=clim
+      ? `<span class="wxclim">📆 TYPICAL</span> ${fmtDate(iso)} · ${e.years||"—"}-yr average`
+      : `<span class="wxlive">● LIVE</span> Forecast · ${fmtDate(iso)} · ${srcName}`;
     const sc=beachScore(e),[bIco,bTxt,bLvl]=beachLabel(sc);
-    return {live:true, src:srcName,
-      badge:`<span class="wxlive">● LIVE</span> Forecast · ${fmtDate(iso)} · ${srcName}`,
+    return {mode:clim?"climatology":"forecast", live:!clim, clim, src:srcName, badge,
       temp:`${cMax}° / ${cMin}°C · ${fMax}° / ${fMin}°F`, skyIco:sIco, sky:sTxt,
       rainIco, rain:rainTxt, stormIco, storm:stormTxt, stormLvl:lvl,
       feels:(e.feels!=null)?Math.round(e.feels):null, uv:(e.uv!=null)?Math.round(e.uv):null,
       wind:(e.wind!=null)?Math.round(e.wind):null,
       beachIco:bIco, beach:bTxt, beachScore:sc, beachLvl:bLvl};
   }
-  return {live:false, src:null, badge:`📅 Typical August · switches to live within ~16 days of travel`,
+  return {mode:"baseline", live:false, clim:false, src:null,
+    badge:`📅 Typical August · switches to live within ~16 days of travel`,
     temp:w.temp, skyIco:w.skyIco, sky:w.sky, rainIco:w.rainIco, rain:w.rain,
     stormIco:w.stormIco, storm:w.storm, stormLvl:w.stormLvl||"mod", beachScore:null};
 }
-/* the next-7-days rows for a location's "beach-day outlook" panel */
-function weekRows(key){
-  const all=liveWx[key]||{};
-  const today=new Date().toISOString().slice(0,10);
-  return Object.keys(all).filter(iso=>iso>=today).sort().slice(0,7).map(iso=>{
-    const e=all[iso],sc=beachScore(e),[bIco,,bLvl]=beachLabel(sc);
-    const[sIco]=e.src==="accuweather"?accuSky(e.phrase,e.cloud):wxSky(e.code);
-    const tmax=e.tmax!=null?Math.round(e.tmax):"–",tmin=e.tmin!=null?Math.round(e.tmin):"–";
-    const rain=e.pprob!=null?e.pprob+"%":"–";
-    const storm=e.tstorm!=null?e.tstorm+"%":(e.code!=null&&e.code>=95?"yes":"–");
-    const uv=e.uv!=null?Math.round(e.uv):"–",wind=e.wind!=null?Math.round(e.wind):"–";
-    const dd=new Date(iso+"T12:00:00");
-    const dlabel=dd.toLocaleDateString(undefined,{weekday:"short"})+" "+dd.getDate();
-    return `<div class="wkrow">
+/* one row per TRIP date at its location — a whole-trip beach-day comparison */
+function tripRows(curId){
+  return days.filter(d=>dayWeather[d.id]).map(d=>{
+    const key=dayWeather[d.id],iso=dayISO[d.id],e=liveWx[key]&&liveWx[key][iso];
+    const sc=e?beachScore(e):null,[bIco,,bLvl]=beachLabel(sc);
+    const sIco=e?(e.src==="accuweather"?accuSky(e.phrase,e.cloud)[0]:wxSky(e.code)[0]):"·";
+    const tmax=(e&&e.tmax!=null)?Math.round(e.tmax):"–",tmin=(e&&e.tmin!=null)?Math.round(e.tmin):"–";
+    const rain=(e&&e.pprob!=null)?e.pprob+"%":"–";
+    const storm=(e&&e.tstorm!=null)?e.tstorm+"%":((e&&e.code!=null&&e.code>=95)?"yes":"–");
+    const dd=new Date(iso+"T12:00:00"),dlabel=dd.toLocaleDateString(undefined,{month:"short",day:"numeric"});
+    return `<div class="wkrow${d.id===curId?" cur":""}">
       <div class="wkday">${sIco} ${dlabel}</div>
-      <div class="wktemp">${tmax}°/${tmin}°</div>
-      <div class="wkmet">🌧️${rain} ⛈️${storm} ☀️${uv} 💨${wind}</div>
+      <div class="wkmet">${esc(weather[key].loc)} · ${tmax}°/${tmin}° · 🌧️${rain} ⛈️${storm}</div>
       <div class="wkscore stormlvl-${bLvl}">${bIco} ${sc!=null?sc:"–"}</div>
     </div>`;
   }).join("");
@@ -770,12 +782,14 @@ function renderWx(d){
   const w=weather[key];const iso=dayISO[d.id];
   const c=wxContent(key,iso);
   const stormClass="stormlvl-"+c.stormLvl;
-  const note=c.live
+  const note=c.mode==="forecast"
     ? `<span>🌀</span><span>Live forecast (${c.src}), cached 30 min. August is peak hurricane season — for tropical systems watch the NHC.</span>`
-    : `<span>🌀</span><span>Typical-August baseline (AccuWeather) — the live forecast reaches these dates within ~16 days of travel. Peak hurricane season: re-check the NHC.</span>`;
-  /* extra live chips: how it feels, UV, wind, and the beach-day verdict */
+    : c.mode==="climatology"
+    ? `<span>📆</span><span>No forecast reaches these dates yet (>16 days out) — this is the historical average for ${esc(fmtDate(iso))} from ~10 years of records, so treat it as the odds, not a forecast. It becomes a live forecast within ~16 days of travel. Peak hurricane season: watch the NHC.</span>`
+    : `<span>🌀</span><span>Typical-August baseline — the live forecast reaches these dates within ~16 days of travel. Peak hurricane season: re-check the NHC.</span>`;
+  /* extra chips: how it feels, UV, wind, and the beach-day verdict */
   let extra="";
-  if(c.live){
+  if(c.mode!=="baseline"){
     const bits=[];
     if(c.feels!=null)bits.push(`<span class="wxchip"><span class="wl">Feels</span> 🥵 ${c.feels}°C</span>`);
     if(c.uv!=null)bits.push(`<span class="wxchip"><span class="wl">UV</span> 🔆 ${c.uv}</span>`);
@@ -783,11 +797,11 @@ function renderWx(d){
     if(c.beachScore!=null)bits.push(`<span class="wxchip beach stormlvl-${c.beachLvl}"><span class="wl">Beach</span> ${c.beachIco} ${esc(c.beach)} · ${c.beachScore}/100</span>`);
     if(bits.length)extra=`<div class="wxrow" style="margin-top:7px">${bits.join("")}</div>`;
   }
-  const rows=weekRows(key);
+  const rows=tripRows(d.id);
   const openCls=openWeeks[d.id]?" open":"";
   const week=rows?`<div class="wxweek${openCls}" id="wxweek-${d.id}">
-      <div class="wxweekhead" onclick="toggleWeek('${d.id}')">🏖️ Beach-day outlook · next 7 days<span class="wxchev">▾</span></div>
-      <div class="wxweekbody"><div class="wkhint">Score blends rain, storm, cloud, RealFeel, wind &amp; UV · 🌧️rain ⛈️storm ☀️UV 💨km/h</div>${rows}</div>
+      <div class="wxweekhead" onclick="toggleWeek('${d.id}')">🏖️ Trip beach-day outlook · all dates<span class="wxchev">▾</span></div>
+      <div class="wxweekbody"><div class="wkhint">Beach score (0–100) blends rain, storm, cloud, RealFeel, wind &amp; UV. Forecast within 16 days, else the 10-yr average.</div>${rows}</div>
     </div>`:"";
   return `<div class="wxcard" id="wx-${d.id}">
     <div class="wxtop">🌤️ Weather · ${esc(w.loc)}
@@ -857,12 +871,53 @@ function fetchAccu(key){
     wxCacheSet(key,"accu",entries);mergeEntries(key,entries);paintWeather();
   });
 }
-/* load forecasts once per page load: use the 30-min cache when fresh, else fetch */
+/* Climatology: Open-Meteo Historical (ERA5), free/no-key. For the trip window
+   (Aug 8–22) it averages the same calendar date across the last ~10 years to
+   give real per-date typicals — used for dates beyond the 16-day forecast reach.
+   Rain/storm are expressed as the % of past years that were wet / stormy. */
+function _avg(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;}
+function _mode(a){const m={};let best=null,bn=-1;a.forEach(v=>{m[v]=(m[v]||0)+1;if(m[v]>bn){bn=m[v];best=v;}});return best==null?null:+best;}
+function fetchClimatology(key){
+  const[la,lo]=weather[key].coords;
+  const endY=new Date().getFullYear()-1,startY=endY-9;   // last 10 complete years
+  const url="https://archive-api.open-meteo.com/v1/archive?latitude="+la+"&longitude="+lo+
+    "&start_date="+startY+"-08-01&end_date="+endY+"-08-31"+
+    "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code,wind_speed_10m_max"+
+    "&timezone=America%2FSanto_Domingo";
+  return fetch(url).then(r=>r.ok?r.json():Promise.reject()).then(j=>{
+    const dl=j&&j.daily;if(!dl||!dl.time)return;
+    const buckets={};                                    // "DD" -> arrays across years
+    dl.time.forEach((t,i)=>{
+      if(t.slice(5,7)!=="08")return;const dn=+t.slice(8,10);if(dn<8||dn>22)return;
+      const b=buckets[dn]||(buckets[dn]={tmax:[],tmin:[],pr:[],codes:[],wind:[]});
+      const p=(arr,v)=>{if(v!=null&&!isNaN(v))arr.push(v);};
+      p(b.tmax,dl.temperature_2m_max[i]);p(b.tmin,dl.temperature_2m_min[i]);
+      p(b.pr,dl.precipitation_sum[i]);if(dl.weather_code[i]!=null)b.codes.push(dl.weather_code[i]);
+      p(b.wind,dl.wind_speed_10m_max[i]);
+    });
+    const entries={};
+    Object.keys(buckets).forEach(dn=>{
+      const b=buckets[dn],n=b.tmax.length;if(!n)return;
+      const pct=(arr,f)=>arr.length?Math.round(100*arr.filter(f).length/arr.length):null;
+      const iso="2026-08-"+String(dn).padStart(2,"0");
+      entries[iso]={src:"climatology",prio:0,years:n,
+        tmax:_avg(b.tmax),tmin:_avg(b.tmin),wind:_avg(b.wind),
+        psum:Math.round(_avg(b.pr)*10)/10,code:_mode(b.codes),
+        pprob:pct(b.pr,v=>v>=1),tstorm:pct(b.codes,c=>c>=95)};
+    });
+    wxCacheSet(key,"clim",entries);mergeEntries(key,entries);paintWeather();
+  });
+}
+/* load forecasts once per page load: use cache when fresh (30 min live / 30 days
+   climatology), else fetch. Climatology fills the trip dates now; the live
+   forecast overrides them as they enter the 16-day window. */
 function loadWeather(){
   if(weatherFetched||typeof fetch!=="function")return;
   weatherFetched=true;
   const useAccu=!!getAccuKey();
   Object.keys(weather).forEach(key=>{
+    if(wxCacheFresh(key,"clim",HIST_TTL))mergeEntries(key,wxCache[key].clim.entries);
+    else fetchClimatology(key).catch(()=>{});
     if(wxCacheFresh(key,"om"))mergeEntries(key,wxCache[key].om.entries);
     else fetchOpenMeteo(key).catch(()=>{});
     if(useAccu){

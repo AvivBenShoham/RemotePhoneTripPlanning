@@ -97,11 +97,21 @@ beach-day outlook**. The data is fetched through a source cascade, best first:
 1. **AccuWeather** (free tier) — used when a key is set and the date is within
    its 5-day forecast window. It's the only source with a real
    *thunderstorm probability %*, which is what the storm chip shows.
-2. **Open-Meteo** (free, no key) — reaches ~16 days ahead, so it fills the days
-   6–16 out and is the automatic fallback if AccuWeather is unset, over quota, or
-   blocked by the browser.
-3. **Typical-August baseline** (from AccuWeather's monthly pages) — shown for any
-   date still beyond the live window.
+2. **Open-Meteo forecast** (free, no key) — reaches ~16 days ahead, so it fills
+   days 6–16 out and is the automatic fallback if AccuWeather is unset, over
+   quota, or blocked by the browser.
+3. **Climatology** (Open-Meteo Historical / ERA5, free) — no daily forecast
+   exists beyond ~16 days, so for trip dates further out each card shows the
+   **10-year average for that exact calendar date**: typical high/low, the % of
+   past years that were *wet* and *stormy*, and wind. It's labelled **📆 TYPICAL
+   · N-yr average** (not a forecast) and is replaced by the live forecast
+   automatically as each date enters the 16-day window.
+4. **Typical-August baseline** — a hand-entered fallback shown only if even the
+   historical fetch fails.
+
+An expandable **🏖️ Trip beach-day outlook** on every card lists *all* trip
+dates side by side with their beach scores, so you can compare which days are
+best for the beach across the whole trip at a glance.
 
 A badge on each card names the source in play, and the **AccuWeather →** link
 opens that location's monthly page to cross-check.
@@ -113,10 +123,11 @@ thunderstorm chance, cloud cover, how hot it *feels* (RealFeel), wind, and UV
 on the day card and next to every day in the **🏖️ Beach-day outlook · next 7
 days** panel (tap to expand), so you can pick the best beach day at a glance.
 
-**30-minute cache.** Each source's response is cached in `localStorage` for 30
-minutes, so reopening or reloading the page reuses the cached forecast instead
-of spending API calls — well inside the 50/day free-tier limit even across many
-visits. After 30 minutes the next load refetches.
+**Client-side cache.** Each source's response is cached in `localStorage` — live
+forecasts for **30 minutes**, the (static) historical climatology for **30
+days** — so reopening or reloading the page reuses cached data instead of
+spending API calls, keeping well inside the 50/day free-tier limit even across
+many visits. After the TTL the next load refetches.
 
 ### Enabling AccuWeather (optional, ~2 minutes)
 
