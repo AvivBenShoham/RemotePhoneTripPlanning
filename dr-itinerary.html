@@ -158,6 +158,30 @@
   .logoutbtn{position:absolute;right:14px;top:14px;z-index:2;background:rgba(0,0,0,.18);color:#fff;border:1px solid rgba(255,255,255,.3);
     border-radius:20px;padding:6px 12px;font-size:.72rem;font-weight:600;cursor:pointer;font-family:inherit}
   .logoutbtn:active{transform:scale(.97)}
+  /* ---- per-day chat ---- */
+  .chat{margin:2px 14px 14px;border:1.5px solid var(--line);border-radius:12px;background:#fbfdfd;overflow:hidden}
+  .chathead{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;font-size:.8rem;font-weight:700;color:var(--turq-d)}
+  .chatcount{margin-left:auto;font-size:.7rem;font-weight:700;min-width:20px;height:20px;padding:0 6px;border-radius:20px;background:var(--turq);color:#fff;display:inline-flex;align-items:center;justify-content:center}
+  .chatcount:empty{display:none}
+  .chatchev{margin-left:6px;transition:transform .2s;font-size:.7rem;color:var(--muted)}
+  .chat.open .chatchev{transform:rotate(180deg)}
+  .chatbody{display:none}
+  .chat.open .chatbody{display:block}
+  .chatlist{max-height:300px;overflow-y:auto;padding:10px 12px;display:flex;flex-direction:column;gap:9px;border-top:1px solid var(--line)}
+  .chatempty{font-size:.82rem;color:var(--muted);text-align:center;padding:10px 4px;font-style:italic}
+  .msg{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px}
+  .msgmeta{display:flex;align-items:center;gap:8px;margin-bottom:2px}
+  .msgname{font-size:.78rem;font-weight:700;color:var(--turq-d)}
+  .msgtime{font-size:.66rem;color:var(--muted)}
+  .msgdel{margin-left:auto;background:none;border:0;color:var(--coral-d);font-size:.82rem;cursor:pointer;padding:1px 5px;line-height:1;border-radius:6px;font-family:inherit}
+  .msgdel:active{background:#ffe9e4}
+  .msgtext{font-size:.88rem;color:var(--ink);word-wrap:break-word;overflow-wrap:anywhere}
+  .chatcompose{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--line);align-items:flex-end}
+  .chatinput{flex:1;border:1px solid var(--line);border-radius:10px;padding:9px 11px;font-size:.88rem;font-family:inherit;background:#fff;resize:none;line-height:1.4;max-height:120px}
+  .chatinput:focus{outline:2px solid rgba(10,169,160,.3);border-color:var(--turq)}
+  .chatsend{flex:0 0 auto;background:var(--turq);color:#fff;border:0;border-radius:10px;width:40px;height:40px;font-size:1.05rem;cursor:pointer;font-family:inherit}
+  .chatsend:active{transform:scale(.96)}
+  .chatoffline{font-size:.82rem;color:var(--muted);padding:12px;text-align:center;font-style:italic;border-top:1px solid var(--line)}
 </style>
 </head>
 <body>
@@ -363,25 +387,28 @@ const FIREBASE_CONFIG = {
 };
 const TRIP_ID = "dr2026";                 // change to start a fresh, separate trip
 const DB_PATH = "trips/" + TRIP_ID;       // all shared state lives under this node
+const CHAT_PATH = "trips/" + TRIP_ID + "_chat"; // per-day chat: its own node so the itinerary blob write never overwrites it
 const EMAIL_DOMAIN = "tripvisualize.app"; // names map to <name>@<EMAIL_DOMAIN> for Firebase Auth
+const AVIV_EMAIL = "aviv@" + EMAIL_DOMAIN; // only this signed-in account sees the delete control
 
 const defaultStore={opt:{beachhop:"moron",slowbeach:"coson",night:"strip"},book:{},acc:{},todo:{}};
 let store=JSON.parse(JSON.stringify(defaultStore));
 try{const raw=localStorage.getItem(LS_KEY);if(raw)store=Object.assign(store,JSON.parse(raw));}catch(e){}
 
 /* ---- Firebase init (guarded like the Leaflet check: falls back cleanly) ---- */
-let dbRef=null, remoteReady=false, auth=null, authReady=false;
+let dbRef=null, remoteReady=false, auth=null, authReady=false, chatRef=null;
 try{
   if(typeof firebase!=='undefined' && FIREBASE_CONFIG.databaseURL.indexOf('PASTE')===-1){
     firebase.initializeApp(FIREBASE_CONFIG);
     dbRef=firebase.database().ref(DB_PATH);
+    chatRef=firebase.database().ref(CHAT_PATH);
     remoteReady=true;
     if(firebase.auth && FIREBASE_CONFIG.apiKey.indexOf('PASTE')===-1){
       auth=firebase.auth();
       authReady=true;
     }
   }
-}catch(e){remoteReady=false;dbRef=null;authReady=false;auth=null;}
+}catch(e){remoteReady=false;dbRef=null;chatRef=null;authReady=false;auth=null;}
 
 /* order-independent serialization so an echo compares equal regardless of key order */
 function stableStr(o){
@@ -509,7 +536,7 @@ function renderDay(d){
     <div id="map-${d.id}" class="lmap"></div>
     <a class="maplink" href="${gmapsDir(d)}" target="_blank" rel="noopener">🗺️ Open this day's route in Google Maps →</a>
     <div class="stops">${d.stops.map(renderStop).join("")}</div>
-    ${renderAcc(d)}</div>`;
+    ${renderAcc(d)}${renderChat(d)}</div>`;
 }
 function recalc(){let g=0;days.forEach(d=>{const c=dayCost(d);g+=c;const el=document.getElementById('dc-'+d.id);if(el)el.textContent='$'+c;});document.getElementById('grandtotal').textContent=g.toLocaleString();}
 
@@ -550,7 +577,7 @@ function setAccField(id,f,v){
 }
 function refreshAcc(id){const d=days.find(x=>x.id===id);const el=document.getElementById('acc-'+id);if(el)el.outerHTML=renderAcc(d);}
 function resetAll(){if(!confirm("Clear all shared booking, accommodation & to-do entries and reset optionals to the recommended picks?"))return;store=JSON.parse(JSON.stringify(defaultStore));save();build();}
-function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();}
+function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();paintAllChats();}
 
 /* ---- To-Do checklist ---- */
 const todoItems=[
@@ -569,6 +596,98 @@ function renderTodo(){
   }).join("");
 }
 function toggleTodo(id){store.todo[id]=!store.todo[id];save();renderTodo();}
+
+/* ---- per-day chat (notes / reminders / debates) ----
+   Each message is its own record under CHAT_PATH/<dayId>, written with push()
+   so concurrent posts never collide (unlike the whole-blob itinerary write).
+   The author is the signed-in account; only Aviv sees the delete control. */
+const chatCache={};                 // {dayId:{msgId:{name,text,ts,uid}}} kept in memory
+const openChats={};                 // which day panels are expanded (preserved across rebuilds)
+let chatWired=false;
+function currentUserObj(){return (authReady&&auth&&auth.currentUser)?auth.currentUser:null;}
+function currentName(){const u=currentUserObj();return u?(u.email||'').split('@')[0]:'';}
+function isAviv(){const u=currentUserObj();return !!u && (u.email||'').toLowerCase()===AVIV_EMAIL;}
+function cap(s){s=String(s||'');return s?s.charAt(0).toUpperCase()+s.slice(1):s;}
+function escLines(s){return esc(s).replace(/\n/g,'<br>');}
+function fmtTime(ts){
+  if(!ts)return '';
+  const d=new Date(ts),diff=(Date.now()-ts)/1000;
+  if(diff<45)return 'just now';
+  if(diff<3600)return Math.floor(diff/60)+'m ago';
+  if(diff<86400)return Math.floor(diff/3600)+'h ago';
+  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+}
+function chatCount(dayId){const c=chatCache[dayId];return c?Object.keys(c).length:0;}
+function sortedMsgs(dayId){
+  const c=chatCache[dayId]||{};
+  return Object.keys(c).map(id=>Object.assign({id},c[id])).sort((a,b)=>(a.ts||0)-(b.ts||0));
+}
+function renderChat(d){
+  const id=d.id,n=chatCount(id),op=openChats[id]?' open':'';
+  const body=remoteReady?
+    `<div class="chatlist" id="chatlist-${id}"></div>
+     <div class="chatcompose">
+       <textarea id="chatinput-${id}" class="chatinput" rows="1" maxlength="2000" placeholder="Write a note, reminder or debate for this day…" oninput="chatAutosize(this)" onkeydown="chatKey(event,'${id}')"></textarea>
+       <button class="chatsend" onclick="sendMsg('${id}')" aria-label="Send message">➤</button>
+     </div>`:
+    `<div class="chatoffline">💤 Day chat needs the live online page to sync.</div>`;
+  return `<div class="chat${op}" id="chat-${id}">
+    <div class="chathead" onclick="toggleChat('${id}')"><span>💬 Day chat</span>
+      <span class="chatcount" id="chatcount-${id}">${n?n:''}</span><span class="chatchev">▾</span></div>
+    <div class="chatbody">${body}</div></div>`;
+}
+function renderMsg(dayId,m){
+  const del=isAviv()?`<button class="msgdel" title="Delete message" onclick="deleteMsg('${dayId}','${m.id}')">✕</button>`:'';
+  return `<div class="msg"><div class="msgmeta"><span class="msgname">${esc(cap(m.name||'Someone'))}</span>
+    <span class="msgtime">${fmtTime(m.ts)}</span>${del}</div>
+    <div class="msgtext">${escLines(m.text||'')}</div></div>`;
+}
+function patchChat(dayId){
+  const list=document.getElementById('chatlist-'+dayId);
+  if(list){
+    const msgs=sortedMsgs(dayId);
+    const atBottom=list.scrollHeight-list.scrollTop-list.clientHeight<40;
+    list.innerHTML=msgs.length?msgs.map(m=>renderMsg(dayId,m)).join(''):`<div class="chatempty">No messages yet — start the conversation.</div>`;
+    if(atBottom)list.scrollTop=list.scrollHeight;
+  }
+  const cnt=document.getElementById('chatcount-'+dayId);
+  if(cnt){const n=chatCount(dayId);cnt.textContent=n?n:'';}
+}
+function paintAllChats(){days.forEach(d=>patchChat(d.id));}
+function wireChat(){
+  if(chatWired||!remoteReady||!chatRef)return;
+  chatWired=true;
+  days.forEach(d=>{
+    const ref=chatRef.child(d.id);
+    ref.on('child_added',s=>{chatCache[d.id]=chatCache[d.id]||{};chatCache[d.id][s.key]=s.val()||{};patchChat(d.id);});
+    ref.on('child_changed',s=>{chatCache[d.id]=chatCache[d.id]||{};chatCache[d.id][s.key]=s.val()||{};patchChat(d.id);});
+    ref.on('child_removed',s=>{if(chatCache[d.id])delete chatCache[d.id][s.key];patchChat(d.id);});
+  });
+}
+function toggleChat(dayId){
+  const box=document.getElementById('chat-'+dayId);if(!box)return;
+  const open=box.classList.toggle('open');openChats[dayId]=open;
+  if(open){patchChat(dayId);const ta=document.getElementById('chatinput-'+dayId);if(ta)setTimeout(()=>ta.focus(),60);}
+}
+function chatAutosize(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,120)+'px';}
+function chatKey(e,dayId){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg(dayId);}}
+function sendMsg(dayId){
+  if(!remoteReady||!chatRef)return;
+  const ta=document.getElementById('chatinput-'+dayId);if(!ta)return;
+  const text=(ta.value||'').trim();if(!text)return;
+  const u=currentUserObj();
+  const msg={uid:u?u.uid:'anon',name:currentName()||'Someone',text:text.slice(0,2000),
+    ts:(typeof firebase!=='undefined'&&firebase.database&&firebase.database.ServerValue)?firebase.database.ServerValue.TIMESTAMP:Date.now()};
+  ta.value='';chatAutosize(ta);
+  openChats[dayId]=true;
+  const box=document.getElementById('chat-'+dayId);if(box)box.classList.add('open');
+  chatRef.child(dayId).push(msg).catch(()=>{});
+}
+function deleteMsg(dayId,msgId){
+  if(!isAviv()||!chatRef)return;
+  if(!confirm('Delete this message?'))return;
+  chatRef.child(dayId).child(msgId).remove().catch(()=>{});
+}
 
 /* ---- sign-in gate (real Firebase Authentication) ----
    Passwords are NOT in this file — they live in Firebase and are verified by
@@ -608,6 +727,7 @@ function startApp(){
       if(stableStr(val)===lastWrittenJSON)return;      // ignore the echo of our own write
       applyRemote(val);
     });
+    wireChat();                                        // per-day chat: append-only, its own listeners
   }
 }
 function enterApp(name){

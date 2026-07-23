@@ -86,6 +86,28 @@ capitalization never matters.
 > open even to someone who has the URL. The one public value in the file (the Web
 > API Key) grants nothing on its own.
 
+## Per-day chat
+
+Every day card has a collapsible **💬 Day chat** panel for notes, reminders, and
+debates about that day. Messages are **shared and persistent** — they sync live
+for everyone signed in and survive reloads.
+
+- **Who's posting** is taken from your signed-in account (Aviv / Karol) — no name
+  to type. Message text is escaped, so pasted links or code can't break the page.
+- **Storage:** each message is its own record under
+  `trips/<TRIP_ID>_chat/<dayId>` (a separate node from the itinerary, written one
+  message at a time with `push()`), so nothing is lost if two people post at once
+  and the itinerary's whole-blob save can never overwrite the chat. It's covered
+  by the same `auth != null` rules — **no Firebase rules change is needed**.
+- **Deleting:** only **Aviv** sees the delete (✕) control on messages; for anyone
+  else it isn't shown. This is a UI-level rule (any signed-in account still has
+  database-level write access, per the open-within-the-group rules above). If you
+  later want deletion enforced by the database itself, that's a small rules
+  addition — ask and it can be added.
+- **Offline / preview:** with no live backend (the in-chat preview, or before the
+  API key is set) the panel shows a short "needs the live page" note instead of a
+  composer, matching how maps and sync already degrade.
+
 ## Hosting one shared link (GitHub Pages)
 
 So everyone opens the same URL instead of passing files around, the repo ships
