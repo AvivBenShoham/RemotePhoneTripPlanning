@@ -83,7 +83,7 @@
   .booktrack.open .btbody{display:block}
   .btrow{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}
   .btrow label{flex:1;min-width:120px;font-size:.72rem;color:var(--muted);font-weight:600}
-  .btrow input{width:100%;margin-top:3px;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:.85rem;font-family:inherit;background:#fff}
+  .btrow input{width:100%;margin-top:3px;border:1px solid var(--line);border-radius:8px;padding:8px;font-size:16px;font-family:inherit;background:#fff}
   .btrow input:focus{outline:2px solid rgba(10,169,160,.3);border-color:var(--turq)}
   .switch{display:flex;align-items:center;gap:9px;margin-top:4px}
   .toggle{position:relative;width:46px;height:26px;flex:0 0 auto}
@@ -150,7 +150,7 @@
   .logincard h2{margin-top:8px;font-size:1.35rem}
   .loginsub{font-size:.84rem;color:var(--muted);margin:6px 0 8px}
   .logincard label{display:block;text-align:left;font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:14px}
-  .logincard input{width:100%;margin-top:5px;border:1px solid var(--line);border-radius:10px;padding:11px;font-size:.95rem;font-family:inherit;background:#fff}
+  .logincard input{width:100%;margin-top:5px;border:1px solid var(--line);border-radius:10px;padding:11px;font-size:16px;font-family:inherit;background:#fff}
   .logincard input:focus{outline:2px solid rgba(10,169,160,.3);border-color:var(--turq)}
   .loginerr{color:var(--coral-d);font-size:.8rem;min-height:1.1em;margin-top:11px;font-weight:600}
   .loginbtn{margin-top:8px;width:100%;background:var(--coral);color:#fff;border:0;border-radius:12px;padding:13px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit}
@@ -483,12 +483,13 @@ function renderOptional(key){
   return `<div class="opt" id="opt-${key}"><div class="opthead">🔀 ${o.label} — tap to choose</div>
     <div class="optbtns">${btns}</div><div class="optnote">${o.note}</div></div>`;
 }
+function accShowing(a){return (a.price!==''&&a.price!=null&&!isNaN(a.price))?('$'+Number(a.price)):('$'+NIGHTLY_DEFAULT+' (default)');}
+function accLinkHTML(a){return a.link?`<a class="maplink" style="border-radius:8px;margin-top:8px;border:1px solid var(--line)" href="${esc(a.link)}" target="_blank" rel="noopener">🔗 Open booking →</a>`:"";}
 function renderAcc(d){
   if(!d.stay)return "";
   const a=store.acc[d.id]||{booked:false,name:"",price:"",link:""};
-  const showing=(a.price!==''&&a.price!=null&&!isNaN(a.price))?('$'+Number(a.price)):('$'+NIGHTLY_DEFAULT+' (default)');
   return `<div class="acc ${a.booked?'booked':''}" id="acc-${d.id}">
-    <div class="acchead">🏨 Accommodation — ${d.stay} · <span style="font-weight:600">${showing}/night</span><span style="margin-left:auto"></span>
+    <div class="acchead">🏨 Accommodation — ${d.stay} · <span id="accprice-${d.id}" style="font-weight:600">${accShowing(a)}/night</span><span style="margin-left:auto"></span>
       <span class="switch" style="margin-top:0"><label class="toggle"><input type="checkbox" ${a.booked?'checked':''} onchange="setAccBooked('${d.id}',this.checked)"><span class="slider"></span></label>
       <span class="swlbl">${a.booked?'Booked':'Not booked'}</span></span></div>
     <div class="accbody">
@@ -497,7 +498,7 @@ function renderAcc(d){
         <label>Price · night (USD)<input type="number" inputmode="decimal" value="${a.price!==''&&a.price!=null?a.price:''}" placeholder="${NIGHTLY_DEFAULT}" oninput="setAccField('${d.id}','price',this.value)"></label>
       </div>
       <div class="btrow"><label>Booking link<input type="url" value="${esc(a.link||'')}" placeholder="https://…" oninput="setAccField('${d.id}','link',this.value)"></label></div>
-      ${a.link?`<a class="maplink" style="border-radius:8px;margin-top:8px;border:1px solid var(--line)" href="${esc(a.link)}" target="_blank" rel="noopener">🔗 Open booking →</a>`:""}
+      <div id="acclink-${d.id}">${accLinkHTML(a)}</div>
     </div></div>`;
 }
 function renderDay(d){
@@ -541,7 +542,12 @@ function setBooked(k,v){store.book[k]=store.book[k]||{};store.book[k].done=v;sav
 function setBookField(k,f,v){store.book[k]=store.book[k]||{};store.book[k][f]=v;save();if(f==='price')recalc();}
 function refreshBT(k){const el=document.getElementById('bt-'+k);const open=el.classList.contains('open');let found;days.forEach(d=>d.stops.forEach(s=>{if(s.book&&s.book.key===k)found=s.book;}));el.outerHTML=renderBookTrack(found);const ne=document.getElementById('bt-'+k);if(open)ne.classList.add('open');}
 function setAccBooked(id,v){store.acc[id]=store.acc[id]||{};store.acc[id].booked=v;save();refreshAcc(id);recalc();}
-function setAccField(id,f,v){store.acc[id]=store.acc[id]||{};store.acc[id][f]=v;save();recalc();if(f==='link'||f==='price')refreshAcc(id);}
+function setAccField(id,f,v){
+  const a=store.acc[id]=store.acc[id]||{};a[f]=v;save();recalc();
+  /* update derived UI in place so the focused input is never remounted (keeps the mobile keyboard open) */
+  if(f==='price'){const el=document.getElementById('accprice-'+id);if(el)el.textContent=accShowing(a)+'/night';}
+  else if(f==='link'){const el=document.getElementById('acclink-'+id);if(el)el.innerHTML=accLinkHTML(a);}
+}
 function refreshAcc(id){const d=days.find(x=>x.id===id);const el=document.getElementById('acc-'+id);if(el)el.outerHTML=renderAcc(d);}
 function resetAll(){if(!confirm("Clear all shared booking, accommodation & to-do entries and reset optionals to the recommended picks?"))return;store=JSON.parse(JSON.stringify(defaultStore));save();build();}
 function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();}
