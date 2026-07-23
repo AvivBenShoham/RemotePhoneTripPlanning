@@ -324,11 +324,8 @@ const LS_KEY="dr_itin_v3";
    copy of the data. See README.md for the 5-minute setup.
    ============================================================================ */
 const FIREBASE_CONFIG = {
-  apiKey:      "PASTE_YOUR_API_KEY",
-  authDomain:  "PASTE_YOUR_PROJECT.firebaseapp.com",
-  databaseURL: "https://PASTE_YOUR_PROJECT-default-rtdb.firebaseio.com",
-  projectId:   "PASTE_YOUR_PROJECT",
-  appId:       "PASTE_YOUR_APP_ID"
+  // For a Realtime Database with public rules, the URL is all the SDK needs.
+  databaseURL: "https://tripvisualize-default-rtdb.europe-west1.firebasedatabase.app/"
 };
 const TRIP_ID = "dr2026";                 // change to start a fresh, separate trip
 const DB_PATH = "trips/" + TRIP_ID;       // all shared state lives under this node
@@ -340,7 +337,7 @@ try{const raw=localStorage.getItem(LS_KEY);if(raw)store=Object.assign(store,JSON
 /* ---- Firebase init (guarded like the Leaflet check: falls back cleanly) ---- */
 let dbRef=null, remoteReady=false;
 try{
-  if(typeof firebase!=='undefined' && FIREBASE_CONFIG.apiKey.indexOf('PASTE')===-1){
+  if(typeof firebase!=='undefined' && FIREBASE_CONFIG.databaseURL.indexOf('PASTE')===-1){
     firebase.initializeApp(FIREBASE_CONFIG);
     dbRef=firebase.database().ref(DB_PATH);
     remoteReady=true;

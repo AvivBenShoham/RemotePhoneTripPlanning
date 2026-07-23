@@ -36,11 +36,13 @@ current device only (`localStorage`), exactly as before.
    This is intentionally open (anyone with the link can view/edit) — privacy
    relies on keeping the database URL and trip id unshared. Fine for a private
    trip; see *Locking it down* below to add a gate later.
-4. **Register a Web App** — Project settings (gear icon) → *Your apps* → the
-   `</>` web icon → register. Copy the `firebaseConfig` object it shows you.
-5. **Paste the config** into `dr-itinerary.html` — replace the `FIREBASE_CONFIG`
-   block near the top of the `<script>` (the fields marked `PASTE_YOUR_...`).
-   Make sure `databaseURL` is included.
+4. **Copy the database URL** — shown at the top of the Realtime Database page
+   (e.g. `https://<project>-default-rtdb.<region>.firebasedatabase.app/`). For a
+   database with the public rules above, the URL is all the app needs — there's
+   no need to register a web app or copy an API key (those are for Firebase Auth,
+   which this app doesn't use).
+5. **Paste the URL** into `dr-itinerary.html` — set `databaseURL` in the
+   `FIREBASE_CONFIG` block near the top of the `<script>`.
 6. That's it. Open the file — edits now sync live for everyone who opens it.
 
 > Want a separate, independent copy of the planner? Change `TRIP_ID` in the file
