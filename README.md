@@ -48,6 +48,28 @@ current device only (`localStorage`), exactly as before.
 > Want a separate, independent copy of the planner? Change `TRIP_ID` in the file
 > (e.g. `"dr2026"` → `"europe2027"`). Each id is its own isolated dataset.
 
+## Sign-in
+
+Opening the page shows a sign-in screen first. Name and password are both
+**case-insensitive**. Starter accounts:
+
+| Name  | Password |
+|-------|----------|
+| Aviv  | `aviv`   |
+| Karol | `karol`  |
+
+To add or change people, edit the `USERS` object near the bottom of
+`dr-itinerary.html` (e.g. `const USERS={aviv:"aviv",karol:"karol",sam:"letmein"};`).
+"Log out" is in the top-right of the header; sign-in is remembered per device.
+
+> **What this login is (and isn't):** it's a front-door gate to keep casual
+> visitors from stumbling in and editing. It is **not** real security — the
+> usernames/passwords sit in the page source, and the database itself is still
+> openly readable/writable by anyone who has its URL. So don't reuse a real
+> password here. For genuine protection (accounts that actually gate the
+> database), the app would use Firebase Authentication with rules that require a
+> signed-in user — happy to set that up on request.
+
 ## Hosting one shared link (GitHub Pages)
 
 So everyone opens the same URL instead of passing files around, the repo ships

@@ -141,10 +141,39 @@
   .marker-pin.start{background:#2f8f6b}.marker-pin.end{background:#e5533f}
   .marker-pin span{transform:rotate(45deg);color:#fff;font-size:12px;font-weight:700}
   .leaflet-container{font:inherit}
+  /* ---- login gate ---- */
+  .loginwrap{position:fixed;inset:0;z-index:2000;background:linear-gradient(135deg,var(--turq) 0%,var(--turq-d) 55%,#046d67 100%);
+    display:flex;align-items:center;justify-content:center;padding:20px}
+  .loginwrap.hidden{display:none}
+  .logincard{background:#fff;border-radius:20px;box-shadow:var(--shadow);padding:26px 22px;width:min(360px,100%);text-align:center}
+  .loginemoji{font-size:2.4rem;line-height:1}
+  .logincard h2{margin-top:8px;font-size:1.35rem}
+  .loginsub{font-size:.84rem;color:var(--muted);margin:6px 0 8px}
+  .logincard label{display:block;text-align:left;font-size:.72rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.4px;margin-top:14px}
+  .logincard input{width:100%;margin-top:5px;border:1px solid var(--line);border-radius:10px;padding:11px;font-size:.95rem;font-family:inherit;background:#fff}
+  .logincard input:focus{outline:2px solid rgba(10,169,160,.3);border-color:var(--turq)}
+  .loginerr{color:var(--coral-d);font-size:.8rem;min-height:1.1em;margin-top:11px;font-weight:600}
+  .loginbtn{margin-top:8px;width:100%;background:var(--coral);color:#fff;border:0;border-radius:12px;padding:13px;font-size:1rem;font-weight:700;cursor:pointer;font-family:inherit}
+  .loginbtn:active{transform:scale(.98)}
+  .logoutbtn{position:absolute;right:14px;top:14px;z-index:2;background:rgba(0,0,0,.18);color:#fff;border:1px solid rgba(255,255,255,.3);
+    border-radius:20px;padding:6px 12px;font-size:.72rem;font-weight:600;cursor:pointer;font-family:inherit}
+  .logoutbtn:active{transform:scale(.97)}
 </style>
 </head>
 <body>
+<div class="loginwrap" id="loginwrap">
+  <form class="logincard" onsubmit="return tryLogin(event)">
+    <div class="loginemoji">🌴</div>
+    <h2>Dominican Republic</h2>
+    <div class="loginsub">Sign in to view &amp; edit the shared itinerary</div>
+    <label>Name<input id="loginName" type="text" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" placeholder="Aviv or Karol"></label>
+    <label>Password<input id="loginPass" type="password" autocomplete="current-password" placeholder="Password"></label>
+    <div class="loginerr" id="loginErr"></div>
+    <button type="submit" class="loginbtn">Enter →</button>
+  </form>
+</div>
 <header class="hero">
+  <button class="logoutbtn" id="logoutbtn" onclick="logout()" style="display:none">Log out</button>
   <div class="wrap">
     <h1>🌴 Dominican Republic</h1>
     <div class="sub">A high-energy 11-day loop for two · Aug 11 – 21, 2026</div>
@@ -525,16 +554,54 @@ function renderTodo(){
 }
 function toggleTodo(id){store.todo[id]=!store.todo[id];save();renderTodo();}
 
-build();
+/* ---- login gate ----
+   NOTE: this is a front-door gate to keep casual visitors out, not real
+   security. Credentials live in this file and the database is still open, so
+   don't use real/reused passwords here. Ask if you want proper auth. */
+const USERS={aviv:"aviv",karol:"karol"};   // names & passwords are case-insensitive
+const USER_KEY="dr_user";
+function currentUser(){try{return localStorage.getItem(USER_KEY);}catch(e){return null;}}
+function tryLogin(ev){
+  if(ev)ev.preventDefault();
+  const n=(document.getElementById('loginName').value||'').trim().toLowerCase();
+  const p=(document.getElementById('loginPass').value||'').trim().toLowerCase();
+  if(USERS.hasOwnProperty(n) && USERS[n]===p){
+    try{localStorage.setItem(USER_KEY,n);}catch(e){}
+    enterApp();
+  }else{
+    document.getElementById('loginErr').textContent="That name and password don't match.";
+    document.getElementById('loginPass').value="";
+    document.getElementById('loginPass').focus();
+  }
+  return false;
+}
+function logout(){try{localStorage.removeItem(USER_KEY);}catch(e){}location.reload();}
 
-/* ---- live shared sync: paint from local cache first, then follow remote ---- */
-if(remoteReady){
-  dbRef.on('value',snap=>{
-    const val=snap.val();
-    if(val===null){writeRemote();return;}          // first run: seed the node from local state
-    if(stableStr(val)===lastWrittenJSON)return;      // ignore the echo of our own write
-    applyRemote(val);
-  });
+let appStarted=false;
+function startApp(){
+  if(appStarted)return; appStarted=true;
+  build();
+  /* live shared sync: paint from local cache first, then follow remote */
+  if(remoteReady){
+    dbRef.on('value',snap=>{
+      const val=snap.val();
+      if(val===null){writeRemote();return;}          // first run: seed the node from local state
+      if(stableStr(val)===lastWrittenJSON)return;      // ignore the echo of our own write
+      applyRemote(val);
+    });
+  }
+}
+function enterApp(){
+  document.getElementById('loginwrap').classList.add('hidden');
+  const lo=document.getElementById('logoutbtn');
+  const u=currentUser(); lo.textContent='Log out'+(u?' ('+u.charAt(0).toUpperCase()+u.slice(1)+')':'');
+  lo.style.display='block';
+  startApp();
+}
+if(currentUser()){
+  enterApp();
+}else{
+  const nm=document.getElementById('loginName'); if(nm)nm.focus();
 }
 
 function openPanel(){document.getElementById('panel').classList.add('open');document.getElementById('overlay').classList.add('open');}
