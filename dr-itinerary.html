@@ -160,7 +160,7 @@
   </div>
 </header>
 <div class="wrap">
-  <div class="savenote"><span>💾</span><div>Your booking details & accommodation entries <b>save automatically</b> when you reopen this file on your phone or laptop. (Saving is inactive inside the chat preview — <b>download & open the file directly</b> for it to stick, and for the maps to load.)</div></div>
+  <div class="savenote"><span>🔗</span><div>Booking details, accommodation & to-dos <b>sync live for everyone</b> — edit on any phone or laptop and the change shows up for the whole group within a second. (Live sync and the maps need the hosted page online; inside the chat preview it falls back to saving on this device only.)</div></div>
   <div class="warnbanner"><span>⚠️</span><div>Prices are USD for the couple. Only <b>Scape Park ($120pp)</b> and taxi rates are your confirmed quotes; the rest are estimates (⚠ = unverified). Toggle optionals, mark things booked, add accommodation — every total updates live.</div></div>
   <div class="legend"><h3>Legend</h3>
     <div class="legrow" style="margin-bottom:10px">
@@ -201,6 +201,9 @@
 </aside>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Firebase (compat build: keeps everything in global scope for the inline onclick handlers) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 <script>
 const days=[
   {id:"d1",n:"Day 1",date:"Tue · Aug 11",title:"Land SDQ → Las Terrenas",stay:"Las Terrenas",
@@ -313,9 +316,77 @@ const optionals={
 };
 const NIGHTLY_DEFAULT=60;
 const LS_KEY="dr_itin_v3";
-let store={opt:{beachhop:"moron",slowbeach:"coson",night:"strip"},book:{},acc:{},todo:{}};
+
+/* ============================================================================
+   SHARED SYNC CONFIG  ——  paste your Firebase project settings below.
+   Until real keys are in place the app runs exactly as before (this-device-only
+   via localStorage). Once filled in, everyone who opens the page shares one live
+   copy of the data. See README.md for the 5-minute setup.
+   ============================================================================ */
+const FIREBASE_CONFIG = {
+  apiKey:      "PASTE_YOUR_API_KEY",
+  authDomain:  "PASTE_YOUR_PROJECT.firebaseapp.com",
+  databaseURL: "https://PASTE_YOUR_PROJECT-default-rtdb.firebaseio.com",
+  projectId:   "PASTE_YOUR_PROJECT",
+  appId:       "PASTE_YOUR_APP_ID"
+};
+const TRIP_ID = "dr2026";                 // change to start a fresh, separate trip
+const DB_PATH = "trips/" + TRIP_ID;       // all shared state lives under this node
+
+const defaultStore={opt:{beachhop:"moron",slowbeach:"coson",night:"strip"},book:{},acc:{},todo:{}};
+let store=JSON.parse(JSON.stringify(defaultStore));
 try{const raw=localStorage.getItem(LS_KEY);if(raw)store=Object.assign(store,JSON.parse(raw));}catch(e){}
-function save(){try{localStorage.setItem(LS_KEY,JSON.stringify(store));}catch(e){}}
+
+/* ---- Firebase init (guarded like the Leaflet check: falls back cleanly) ---- */
+let dbRef=null, remoteReady=false;
+try{
+  if(typeof firebase!=='undefined' && FIREBASE_CONFIG.apiKey.indexOf('PASTE')===-1){
+    firebase.initializeApp(FIREBASE_CONFIG);
+    dbRef=firebase.database().ref(DB_PATH);
+    remoteReady=true;
+  }
+}catch(e){remoteReady=false;dbRef=null;}
+
+/* order-independent serialization so an echo compares equal regardless of key order */
+function stableStr(o){
+  if(o===null||typeof o!=='object')return JSON.stringify(o);
+  if(Array.isArray(o))return '['+o.map(stableStr).join(',')+']';
+  return '{'+Object.keys(o).sort().map(k=>JSON.stringify(k)+':'+stableStr(o[k])).join(',')+'}';
+}
+/* debounced whole-blob write; lastWrittenJSON lets the listener ignore our echo */
+let writeTimer=null, lastWrittenJSON=null;
+function writeRemote(){
+  if(!remoteReady)return;
+  clearTimeout(writeTimer);
+  writeTimer=setTimeout(()=>{
+    lastWrittenJSON=stableStr(store);
+    dbRef.set(store).catch(()=>{});
+  },400);
+}
+function save(){
+  try{localStorage.setItem(LS_KEY,JSON.stringify(store));}catch(e){}
+  writeRemote();
+}
+
+/* apply an incoming remote snapshot, without wiping a field being typed in */
+let pendingVal=null, blurHooked=false;
+function doApply(val){
+  store=Object.assign(JSON.parse(JSON.stringify(defaultStore)),val);
+  try{localStorage.setItem(LS_KEY,JSON.stringify(store));}catch(e){}
+  build();
+}
+function applyRemote(val){
+  const ae=document.activeElement;
+  if(ae && (ae.tagName==='INPUT'||ae.tagName==='TEXTAREA')){
+    pendingVal=val;                       // newest remote state wins on blur
+    if(!blurHooked){
+      blurHooked=true;
+      ae.addEventListener('blur',function(){blurHooked=false;if(pendingVal!==null){const v=pendingVal;pendingVal=null;doApply(v);}},{once:true});
+    }
+  }else{
+    doApply(val);
+  }
+}
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
 /* accommodation nightly value used in totals: entered price if any, else default $60 (shown for every night with a stay) */
@@ -436,7 +507,7 @@ function refreshBT(k){const el=document.getElementById('bt-'+k);const open=el.cl
 function setAccBooked(id,v){store.acc[id]=store.acc[id]||{};store.acc[id].booked=v;save();refreshAcc(id);recalc();}
 function setAccField(id,f,v){store.acc[id]=store.acc[id]||{};store.acc[id][f]=v;save();recalc();if(f==='link'||f==='price')refreshAcc(id);}
 function refreshAcc(id){const d=days.find(x=>x.id===id);const el=document.getElementById('acc-'+id);if(el)el.outerHTML=renderAcc(d);}
-function resetAll(){if(!confirm("Clear all your booking & accommodation entries and reset optionals to the recommended picks?"))return;store={opt:{beachhop:"moron",slowbeach:"coson",night:"strip"},book:{},acc:{}};save();build();}
+function resetAll(){if(!confirm("Clear all shared booking, accommodation & to-do entries and reset optionals to the recommended picks?"))return;store=JSON.parse(JSON.stringify(defaultStore));save();build();}
 function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();}
 
 /* ---- To-Do checklist ---- */
@@ -458,6 +529,17 @@ function renderTodo(){
 function toggleTodo(id){store.todo[id]=!store.todo[id];save();renderTodo();}
 
 build();
+
+/* ---- live shared sync: paint from local cache first, then follow remote ---- */
+if(remoteReady){
+  dbRef.on('value',snap=>{
+    const val=snap.val();
+    if(val===null){writeRemote();return;}          // first run: seed the node from local state
+    if(stableStr(val)===lastWrittenJSON)return;      // ignore the echo of our own write
+    applyRemote(val);
+  });
+}
+
 function openPanel(){document.getElementById('panel').classList.add('open');document.getElementById('overlay').classList.add('open');}
 function closePanel(){document.getElementById('panel').classList.remove('open');document.getElementById('overlay').classList.remove('open');}
 </script>
