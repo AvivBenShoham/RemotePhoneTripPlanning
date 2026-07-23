@@ -564,6 +564,24 @@ function renderAcc(d){
       <div id="acclink-${d.id}">${accLinkHTML(a)}</div>
     </div></div>`;
 }
+/* AccuWeather page per day's location — tap to see that spot's live weather */
+const dayWeather={
+  d1:["Las Terrenas","https://www.accuweather.com/en/do/las-terrenas/464081/august-weather/464081"],
+  d2:["Las Terrenas","https://www.accuweather.com/en/do/las-terrenas/464081/august-weather/464081"],
+  d3:["Las Terrenas","https://www.accuweather.com/en/do/las-terrenas/464081/august-weather/464081"],
+  d4:["Bayahibe","https://www.accuweather.com/en/do/bayahibe/123411/august-weather/123411"],
+  d5:["Bayahibe","https://www.accuweather.com/en/do/bayahibe/123411/august-weather/123411"],
+  d6:["Bayahibe","https://www.accuweather.com/en/do/bayahibe/123411/august-weather/123411"],
+  d7:["Punta Cana","https://www.accuweather.com/en/do/punta-cana/462477/august-weather/462477"],
+  d8:["Punta Cana","https://www.accuweather.com/en/do/punta-cana/462477/august-weather/462477"],
+  d9:["Punta Cana","https://www.accuweather.com/en/do/punta-cana/462477/august-weather/462477"],
+  d10:["Santo Domingo","https://www.accuweather.com/en/do/santo-domingo/125887/august-weather/125887"],
+  d11:["Santo Domingo","https://www.accuweather.com/en/do/santo-domingo/125887/august-weather/125887"]
+};
+function wxLink(d){
+  const w=dayWeather[d.id];if(!w)return "";
+  return `<a class="maplink" href="${w[1]}" target="_blank" rel="noopener">🌦️ ${esc(w[0])} weather on AccuWeather →</a>`;
+}
 function renderDay(d){
   const swapBadge=d.swap?`<span class="tag ahead" style="margin-left:6px">🔁 swappable</span>`:"";
   return `<div class="day">
@@ -571,6 +589,7 @@ function renderDay(d){
       <div class="daycost"><div class="dc" id="dc-${d.id}">$${dayCost(d)}</div><div class="dcl">day total</div></div></div>
     <div id="map-${d.id}" class="lmap"></div>
     <a class="maplink" href="${gmapsDir(d)}" target="_blank" rel="noopener">🗺️ Open this day's route in Google Maps →</a>
+    ${wxLink(d)}
     <div class="stops">${d.stops.map(renderStop).join("")}</div>
     ${renderAcc(d)}${renderChat(d)}</div>`;
 }
