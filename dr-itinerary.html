@@ -65,6 +65,8 @@
   .wxsrc{margin-left:auto;font-size:.68rem;font-weight:600;color:var(--turq-d);text-decoration:none;
     text-transform:none;letter-spacing:0;background:#fff;border:1px solid var(--line);border-radius:20px;padding:2px 9px}
   .wxsrc:active{opacity:.7}
+  .wxstatus{font-size:.7rem;font-weight:700;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+  .wxlive{display:inline-flex;align-items:center;gap:4px;color:var(--spot);font-weight:800;letter-spacing:.3px}
   .wxrow{display:flex;flex-wrap:wrap;gap:7px}
   .wxchip{display:inline-flex;align-items:center;gap:6px;font-size:.76rem;background:#fff;border:1px solid var(--line);
     border-radius:9px;padding:5px 9px;color:var(--ink);font-weight:600}
@@ -384,31 +386,45 @@ const optionals={
       coco:{name:"Coco Bongo",cost:170,desc:"⚠ Show-club with performances; ticket ~$85pp. Confirm it operates on a Monday before planning around it."}}}
 };
 /* ----------------------------------------------------------------------------
-   AUGUST WEATHER per location — sourced from AccuWeather's monthly pages
-   (temperature, sky, precipitation & storm outlook). These are typical-August
-   figures for the trip window, not a live forecast — always re-check a few days
-   out. August is peak Atlantic hurricane season, so a passing tropical system
-   can override any of this: watch the US National Hurricane Center (nhc.noaa.gov).
+   WEATHER per location — live forecast fetched on load, AccuWeather baseline
+   as fallback.
+
+   On entrance the page pulls a live daily forecast from Open-Meteo (free, no
+   key, CORS-enabled) for each of the three locations. Open-Meteo reaches ~16
+   days ahead, so as the trip nears, each day's card fills with the REAL
+   forecast for that exact date. Until a date is inside that window, the card
+   shows the typical-August baseline below (figures from AccuWeather's monthly
+   pages). AccuWeather has no free browser-callable API, so it can't be fetched
+   client-side — the "AccuWeather →" link lets you open the source page to
+   cross-check. August is peak Atlantic hurricane season: a passing tropical
+   system overrides any forecast — watch the NHC (nhc.noaa.gov).
    ---------------------------------------------------------------------------- */
 const weather={
-  lt:{loc:"Las Terrenas",url:"https://www.accuweather.com/en/do/las-terrenas/464081/august-weather/464081",
+  lt:{loc:"Las Terrenas", coords:[19.3087,-69.5443],
+    url:"https://www.accuweather.com/en/do/las-terrenas/464081/august-weather/464081",
     temp:"31° / 24°C · 88° / 76°F",
     skyIco:"⛅", sky:"Partly cloudy — clouds build in the afternoon",
     rainIco:"🌧️", rain:"Frequent PM showers · wettest of the three (~16 rainy days)",
     stormIco:"⛈️", storm:"Afternoon thunderstorms fairly common", stormLvl:"mod"},
-  bh:{loc:"Bayahibe",url:"https://www.accuweather.com/en/do/bayahibe/123411/august-weather/123411",
+  bh:{loc:"Bayahibe", coords:[18.3607,-68.8419],
+    url:"https://www.accuweather.com/en/do/bayahibe/123411/august-weather/123411",
     temp:"32° / 25°C · 89° / 77°F",
     skyIco:"🌤️", sky:"Mostly sunny — sunniest, driest of the three",
     rainIco:"🌦️", rain:"Brief passing showers · light monthly totals",
     stormIco:"🌩️", storm:"Thunderstorms infrequent (~4 storm days/mo)", stormLvl:"low"},
-  pc:{loc:"Punta Cana",url:"https://www.accuweather.com/en/do/punta-cana/462477/august-weather/462477",
+  pc:{loc:"Punta Cana", coords:[18.5820,-68.4055],
+    url:"https://www.accuweather.com/en/do/punta-cana/462477/august-weather/462477",
     temp:"31° / 27°C · 88° / 80°F",
     skyIco:"⛅", sky:"Partly sunny & humid — warmest nights",
     rainIco:"🌦️", rain:"Short afternoon showers, then it clears",
     stormIco:"⛈️", storm:"PM / evening thunderstorms possible", stormLvl:"mod"}
 };
-/* which location's weather applies to each day (the 3 requested spots) */
+/* which location's weather applies to each day + that day's calendar date */
 const dayWeather={d1:"lt",d2:"lt",d3:"lt",d4:"bh",d5:"bh",d6:"bh",d7:"pc",d8:"pc",d9:"pc"};
+const dayISO={d1:"2026-08-11",d2:"2026-08-12",d3:"2026-08-13",d4:"2026-08-14",d5:"2026-08-15",
+  d6:"2026-08-16",d7:"2026-08-17",d8:"2026-08-18",d9:"2026-08-19"};
+let liveWx={};              // {locKey:{isoDate:{code,tmax,tmin,psum,pprob}}}
+let weatherFetched=false;   // fetch once per page load
 
 const NIGHTLY_DEFAULT=60;
 const LS_KEY="dr_itin_v3";
@@ -570,22 +586,85 @@ function renderAcc(d){
       <div id="acclink-${d.id}">${accLinkHTML(a)}</div>
     </div></div>`;
 }
+/* map an Open-Meteo WMO weather code → [icon, sky text] */
+function wxSky(c){
+  if(c===0)return["☀️","Clear & sunny"];
+  if(c===1)return["🌤️","Mostly sunny"];
+  if(c===2)return["⛅","Partly cloudy"];
+  if(c===3)return["☁️","Overcast"];
+  if(c===45||c===48)return["🌫️","Fog"];
+  if(c>=51&&c<=57)return["🌦️","Drizzle"];
+  if(c>=61&&c<=67)return["🌧️","Rain"];
+  if(c>=80&&c<=82)return["🌦️","Rain showers"];
+  if(c>=95)return["⛈️","Thunderstorms"];
+  return["⛅","Mixed skies"];
+}
+function fmtDate(iso){const d=new Date(iso+"T12:00:00");return d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});}
+/* build the 4 chips + header from live data if we have it, else the baseline */
+function wxContent(key,iso){
+  const w=weather[key];
+  const lv=liveWx[key]&&liveWx[key][iso];
+  if(lv&&lv.tmax!=null){
+    const cMax=Math.round(lv.tmax),cMin=Math.round(lv.tmin);
+    const fMax=Math.round(lv.tmax*9/5+32),fMin=Math.round(lv.tmin*9/5+32);
+    const[sIco,sTxt]=wxSky(lv.code);
+    const prob=(lv.pprob!=null)?lv.pprob:null;
+    const mm=(lv.psum!=null)?Math.round(lv.psum*10)/10:null;
+    const rainTxt=(prob!=null?prob+"% chance":"showers")+(mm!=null?" · "+mm+" mm":"");
+    const rainIco=(prob!=null&&prob>=50)||(mm!=null&&mm>=3)?"🌧️":"🌦️";
+    const thunder=lv.code>=95;
+    const lvl=thunder?"high":(prob!=null&&prob>=55?"mod":"low");
+    const stormTxt=thunder?"Thunderstorms in the forecast":(prob!=null&&prob>=55?"Storms possible":"Storm unlikely");
+    return {live:true, badge:`<span class="wxlive">● LIVE</span> Forecast · ${fmtDate(iso)}`,
+      temp:`${cMax}° / ${cMin}°C · ${fMax}° / ${fMin}°F`, skyIco:sIco, sky:sTxt,
+      rainIco, rain:rainTxt, stormIco:thunder?"⛈️":"🌩️", storm:stormTxt, stormLvl:lvl};
+  }
+  return {live:false, badge:`📅 Typical August · switches to live within ~16 days of travel`,
+    temp:w.temp, skyIco:w.skyIco, sky:w.sky, rainIco:w.rainIco, rain:w.rain,
+    stormIco:w.stormIco, storm:w.storm, stormLvl:w.stormLvl||"mod"};
+}
 function renderWx(d){
   const key=dayWeather[d.id];if(!key)return "";
-  const w=weather[key];
-  const stormClass="stormlvl-"+(w.stormLvl||"mod");
-  return `<div class="wxcard">
-    <div class="wxtop">🌤️ August weather · ${esc(w.loc)}
+  const w=weather[key];const iso=dayISO[d.id];
+  const c=wxContent(key,iso);
+  const stormClass="stormlvl-"+c.stormLvl;
+  const note=c.live
+    ? `<span>🌀</span><span>Live daily forecast (Open-Meteo), refreshed on load. August is peak hurricane season — for tropical systems watch the NHC.</span>`
+    : `<span>🌀</span><span>Typical-August baseline (AccuWeather) — the live forecast reaches these dates within ~16 days of travel. Peak hurricane season: re-check the NHC.</span>`;
+  return `<div class="wxcard" id="wx-${d.id}">
+    <div class="wxtop">🌤️ Weather · ${esc(w.loc)}
       <a class="wxsrc" href="${w.url}" target="_blank" rel="noopener">AccuWeather →</a></div>
+    <div class="wxstatus">${c.badge}</div>
     <div class="wxrow">
-      <span class="wxchip"><span class="wl">Temp</span> 🌡️ ${esc(w.temp)}</span>
-      <span class="wxchip"><span class="wl">Sky</span> ${w.skyIco} ${esc(w.sky)}</span>
-      <span class="wxchip"><span class="wl">Rain</span> ${w.rainIco} ${esc(w.rain)}</span>
-      <span class="wxchip ${stormClass}"><span class="wl">Storm</span> ${w.stormIco} ${esc(w.storm)}</span>
+      <span class="wxchip"><span class="wl">Temp</span> 🌡️ ${esc(c.temp)}</span>
+      <span class="wxchip"><span class="wl">Sky</span> ${c.skyIco} ${esc(c.sky)}</span>
+      <span class="wxchip"><span class="wl">Rain</span> ${c.rainIco} ${esc(c.rain)}</span>
+      <span class="wxchip ${stormClass}"><span class="wl">Storm</span> ${c.stormIco} ${esc(c.storm)}</span>
     </div>
-    <div class="wxnote"><span>🌀</span><span>Typical-August pattern, not a live forecast — peak hurricane season, so re-check AccuWeather &amp; the NHC before you travel.</span></div>
+    <div class="wxnote">${note}</div>
   </div>`;
 }
+/* fetch the live daily forecast for all three locations (once per load) */
+function loadWeather(){
+  if(weatherFetched||typeof fetch!=="function")return;
+  weatherFetched=true;
+  Object.keys(weather).forEach(key=>{
+    const[la,lo]=weather[key].coords;
+    const url="https://api.open-meteo.com/v1/forecast?latitude="+la+"&longitude="+lo+
+      "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max"+
+      "&timezone=America%2FSanto_Domingo&forecast_days=16";
+    fetch(url).then(r=>r.ok?r.json():Promise.reject()).then(j=>{
+      const dl=j&&j.daily;if(!dl||!dl.time)return;
+      const out={};
+      dl.time.forEach((t,i)=>{out[t]={code:dl.weather_code[i],tmax:dl.temperature_2m_max[i],
+        tmin:dl.temperature_2m_min[i],psum:dl.precipitation_sum[i],pprob:dl.precipitation_probability_max[i]};});
+      liveWx[key]=out;
+      paintWeather();
+    }).catch(()=>{});
+  });
+}
+/* repaint the weather cards in place (used after a fetch and after any rebuild) */
+function paintWeather(){days.forEach(d=>{if(!dayWeather[d.id])return;const el=document.getElementById('wx-'+d.id);if(el)el.outerHTML=renderWx(d);});}
 function renderDay(d){
   const swapBadge=d.swap?`<span class="tag ahead" style="margin-left:6px">🔁 swappable</span>`:"";
   return `<div class="day">
@@ -636,7 +715,7 @@ function setAccField(id,f,v){
 }
 function refreshAcc(id){const d=days.find(x=>x.id===id);const el=document.getElementById('acc-'+id);if(el)el.outerHTML=renderAcc(d);}
 function resetAll(){if(!confirm("Clear all shared booking, accommodation & to-do entries and reset optionals to the recommended picks?"))return;store=JSON.parse(JSON.stringify(defaultStore));save();build();}
-function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();paintAllChats();}
+function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();paintAllChats();paintWeather();}
 
 /* ---- To-Do checklist ---- */
 const todoItems=[
@@ -778,6 +857,7 @@ let appStarted=false;
 function startApp(){
   if(appStarted)return; appStarted=true;
   build();
+  loadWeather();                                     // live forecast, refreshed each load
   /* live shared sync: paint from local cache first, then follow remote */
   if(remoteReady){
     dbRef.on('value',snap=>{
