@@ -90,8 +90,9 @@ capitalization never matters.
 
 Each day at one of the three trip locations — **Las Terrenas** (Days 1–3),
 **Bayahibe** (Days 4–6), **Punta Cana** (Days 7–9) — shows a weather card with
-temperature, sky (cloudy vs. sunny), rain chance, and **storm probability**. The
-data is **fetched live on every page load** through a source cascade, best first:
+temperature, sky (cloudy vs. sunny), rain chance, **storm probability**, plus
+RealFeel, UV and wind, a **Beach-Day Score**, and an expandable **7-day
+beach-day outlook**. The data is fetched through a source cascade, best first:
 
 1. **AccuWeather** (free tier) — used when a key is set and the date is within
    its 5-day forecast window. It's the only source with a real
@@ -105,6 +106,18 @@ data is **fetched live on every page load** through a source cascade, best first
 A badge on each card names the source in play, and the **AccuWeather →** link
 opens that location's monthly page to cross-check.
 
+**Beach-Day Score.** Each live day gets a 0–100 score for how good a beach day
+it is, blended from the fields that actually matter on a beach: rain chance,
+thunderstorm chance, cloud cover, how hot it *feels* (RealFeel), wind, and UV
+(inputs a source doesn't provide are skipped). It shows as a colour-coded chip
+on the day card and next to every day in the **🏖️ Beach-day outlook · next 7
+days** panel (tap to expand), so you can pick the best beach day at a glance.
+
+**30-minute cache.** Each source's response is cached in `localStorage` for 30
+minutes, so reopening or reloading the page reuses the cached forecast instead
+of spending API calls — well inside the 50/day free-tier limit even across many
+visits. After 30 minutes the next load refetches.
+
 ### Enabling AccuWeather (optional, ~2 minutes)
 
 The page works out of the box on Open-Meteo. To turn on the richer AccuWeather
@@ -112,15 +125,21 @@ source:
 
 1. Register (free) at <https://developer.accuweather.com> → **My Apps** → *Add a
    new App* → copy its **API Key**. The free *Core Weather Limited Trial* plan
-   allows **50 calls/day**; this page uses **3 per load** (one per location).
-2. Paste the key into `ACCUWEATHER_API_KEY` near the top of the `<script>` in
-   `dr-itinerary.html`. Leave it blank to stay on Open-Meteo only.
+   allows **50 calls/day**; this page uses at most **3 per load** (one per
+   location) — and thanks to the 30-minute cache, at most 3 per half-hour.
+2. Open the planner and click **🔑 Set AccuWeather key** on any weather card,
+   then paste the key. That's it — the cards switch to AccuWeather immediately.
 
-> **Note on the key:** a client-side key is visible in the page source. The
-> free-trial key grants only read access to forecasts and can be rotated or
-> deleted anytime in the AccuWeather console — treat it like the public Firebase
-> Web API key. The location keys (`awKey`) are the numbers already in each
-> AccuWeather URL, so no extra "find location" call is spent.
+> **The key is entered at runtime, not committed to the repo — on purpose.**
+> This site deploys to **GitHub Pages, which is public**, so a key hardcoded in
+> the HTML would be world-readable and could be abused (GitHub's push protection
+> also blocks committing it). Instead the key you enter is saved to the
+> **auth-gated Firebase sync**, so it reaches everyone signed in without ever
+> appearing in the public page source, plus a per-device `localStorage` copy.
+> To update or remove it later, click the **🔑** button again (clearing the
+> field removes it and falls back to Open-Meteo). The location keys (`awKey`)
+> are the numbers already in each AccuWeather URL, so no extra "find location"
+> call is spent.
 
 ## Per-day chat
 
