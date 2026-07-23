@@ -190,6 +190,26 @@
   .toast .tname{font-weight:700;margin-bottom:1px}
   .toast .ttext{opacity:.9;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
   .toast .tclose{margin-left:auto;opacity:.7;font-weight:700;padding-left:6px}
+  /* ---- unread alerts (bell + panel + per-day dot) ---- */
+  .chatunread{margin-left:6px;min-width:18px;height:18px;padding:0 5px;border-radius:20px;background:var(--coral);color:#fff;
+    font-size:.66rem;font-weight:700;display:none;align-items:center;justify-content:center}
+  .alertsbtn{position:fixed;right:16px;bottom:16px;z-index:1000;background:var(--turq-d);color:#fff;border:0;border-radius:50%;
+    width:54px;height:54px;font-size:1.3rem;cursor:pointer;box-shadow:0 6px 18px rgba(7,131,124,.45);font-family:inherit;
+    display:none;align-items:center;justify-content:center}
+  .alertsbtn:active{transform:scale(.96)}
+  .alertsbadge{position:absolute;top:-3px;right:-3px;min-width:20px;height:20px;padding:0 5px;border-radius:20px;background:var(--coral);
+    color:#fff;font-size:.7rem;font-weight:700;display:none;align-items:center;justify-content:center;border:2px solid var(--sand)}
+  .markall{display:block;margin:12px 14px 2px;background:none;border:1px solid var(--line);border-radius:10px;padding:9px;
+    font-size:.8rem;font-weight:600;color:var(--turq-d);cursor:pointer;font-family:inherit;width:calc(100% - 28px)}
+  .markall:active{background:#eef8f6}
+  .alertitem{background:#fff;margin:10px 14px;border-radius:12px;padding:11px 13px;box-shadow:var(--shadow-l);cursor:pointer;border-left:4px solid var(--coral)}
+  .alertitem:active{transform:scale(.995)}
+  .alertmeta{display:flex;align-items:center;gap:8px;margin-bottom:3px}
+  .alertday{font-size:.64rem;font-weight:700;color:var(--coral);text-transform:uppercase;letter-spacing:.5px}
+  .alertname{font-size:.8rem;font-weight:700;color:var(--turq-d)}
+  .alerttime{font-size:.64rem;color:var(--muted);margin-left:auto}
+  .alerttext{font-size:.86rem;color:var(--ink);word-wrap:break-word;overflow-wrap:anywhere}
+  .alertsempty{text-align:center;color:var(--muted);font-size:.9rem;padding:34px 18px}
 </style>
 </head>
 <body>
@@ -244,6 +264,13 @@
   <div class="foot">Maps © OpenStreetMap contributors · markers are exact; the line connects stops in order (straight-line). Tap “open in Google Maps” for live road navigation.<br>Tap <b>Important Notes</b> for the reasoning behind the route.</div>
 </div>
 <div class="toastwrap" id="toastwrap"></div>
+<button class="alertsbtn" id="alertsbtn" onclick="toggleAlerts()">🔔<span class="alertsbadge" id="alertsbadge"></span></button>
+<div class="overlay" id="alertsoverlay" onclick="closeAlerts()"></div>
+<aside class="panel" id="alertspanel">
+  <div class="panelhead"><h2>🔔 Unread messages</h2><button class="x" onclick="closeAlerts()">✕</button></div>
+  <button class="markall" onclick="markAllSeen()">Mark all as read</button>
+  <div id="alertslist"></div>
+</aside>
 <button class="notesbtn" onclick="openPanel()">💡 Important Notes</button>
 <div class="overlay" id="overlay" onclick="closePanel()"></div>
 <aside class="panel" id="panel">
@@ -586,7 +613,7 @@ function setAccField(id,f,v){
 }
 function refreshAcc(id){const d=days.find(x=>x.id===id);const el=document.getElementById('acc-'+id);if(el)el.outerHTML=renderAcc(d);}
 function resetAll(){if(!confirm("Clear all shared booking, accommodation & to-do entries and reset optionals to the recommended picks?"))return;store=JSON.parse(JSON.stringify(defaultStore));save();build();}
-function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();paintAllChats();}
+function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();paintAllChats();if(typeof updateAlerts==='function')updateAlerts();}
 
 /* ---- To-Do checklist ---- */
 const todoItems=[
@@ -642,7 +669,7 @@ function renderChat(d){
     `<div class="chatoffline">💤 Day chat needs the live online page to sync.</div>`;
   return `<div class="chat${op}" id="chat-${id}">
     <div class="chathead" onclick="toggleChat('${id}')"><span>💬 Day chat</span>
-      <span class="chatcount" id="chatcount-${id}">${n?n:''}</span><span class="chatchev">▾</span></div>
+      <span class="chatcount" id="chatcount-${id}">${n?n:''}</span><span class="chatunread" id="chatunread-${id}"></span><span class="chatchev">▾</span></div>
     <div class="chatbody">${body}</div></div>`;
 }
 function renderMsg(dayId,m){
@@ -672,16 +699,17 @@ function wireChat(){
       chatCache[d.id]=chatCache[d.id]||{};chatCache[d.id][s.key]=s.val()||{};patchChat(d.id);
       const m=chatCache[d.id][s.key];
       if(chatPrimed[d.id] && !isOwnMsg(m)) announceMsg(d.id,m);   // only after backlog, never own messages
+      updateAlerts();                                            // refresh unread badge + per-day dots
     });
     ref.on('child_changed',s=>{chatCache[d.id]=chatCache[d.id]||{};chatCache[d.id][s.key]=s.val()||{};patchChat(d.id);});
-    ref.on('child_removed',s=>{if(chatCache[d.id])delete chatCache[d.id][s.key];patchChat(d.id);});
+    ref.on('child_removed',s=>{if(chatCache[d.id])delete chatCache[d.id][s.key];patchChat(d.id);updateAlerts();});
     ref.once('value',()=>{chatPrimed[d.id]=true;});               // backlog loaded → later adds are "new"
   });
 }
 function toggleChat(dayId){
   const box=document.getElementById('chat-'+dayId);if(!box)return;
   const open=box.classList.toggle('open');openChats[dayId]=open;
-  if(open){ensureNotifyPermission();patchChat(dayId);const ta=document.getElementById('chatinput-'+dayId);if(ta)setTimeout(()=>ta.focus(),60);}
+  if(open){ensureNotifyPermission();markDaySeen(dayId);patchChat(dayId);const ta=document.getElementById('chatinput-'+dayId);if(ta)setTimeout(()=>ta.focus(),60);}
 }
 function chatAutosize(ta){ta.style.height='auto';ta.style.height=Math.min(ta.scrollHeight,120)+'px';}
 function chatKey(e,dayId){if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg(dayId);}}
@@ -736,7 +764,7 @@ function announceMsg(dayId,m){
   const body=(m.text||'').replace(/\s+/g,' ').slice(0,140);
   /* if they're already looking at this open thread, the message is visible — stay quiet */
   const viewing=document.visibilityState==='visible' && openChats[dayId] && (!document.hasFocus||document.hasFocus());
-  if(viewing)return;
+  if(viewing){markDaySeen(dayId);return;}   // it's on-screen — count it as read, stay quiet
   showToast(dayId,title,body);
   if(notifySupported() && Notification.permission==='granted'){
     try{const n=new Notification(title,{body,tag:'chat-'+dayId});
@@ -761,6 +789,61 @@ function showToast(dayId,title,body){
 function removeToast(el){
   if(!el)return;el.classList.remove('show');
   setTimeout(()=>{if(el.parentNode)el.parentNode.removeChild(el);},200);
+}
+
+/* ---- unread tracking: a 🔔 that surfaces messages you haven't read yet ----
+   "Seen" is a per-day timestamp kept in localStorage (per account, per device),
+   so it survives reloads and logins. A message counts as unread if it's from
+   someone else and newer than when you last read that day. A brand-new device
+   with no record starts from this session (appStartTs) so it isn't flooded with
+   the whole history. */
+const appStartTs=Date.now();
+let chatSeen={};
+function seenKey(){const u=currentUserObj();return 'dr_chat_seen_'+(u?u.uid:'anon');}
+function loadSeen(){try{const raw=localStorage.getItem(seenKey());chatSeen=raw?JSON.parse(raw):{};}catch(e){chatSeen={};}}
+function saveSeen(){try{localStorage.setItem(seenKey(),JSON.stringify(chatSeen));}catch(e){}}
+function seenBase(dayId){return chatSeen[dayId]!=null?chatSeen[dayId]:appStartTs;}
+function unreadForDay(dayId){
+  const c=chatCache[dayId];if(!c)return 0;
+  const base=seenBase(dayId);let n=0;
+  for(const k in c){const m=c[k];if(!isOwnMsg(m)&&(m.ts||0)>base)n++;}
+  return n;
+}
+function totalUnread(){let n=0;days.forEach(d=>n+=unreadForDay(d.id));return n;}
+function markDaySeen(dayId){chatSeen[dayId]=Date.now();saveSeen();updateAlerts();}
+function markAllSeen(){const now=Date.now();days.forEach(d=>chatSeen[d.id]=now);saveSeen();updateAlerts();closeAlerts();}
+function updateDayUnread(dayId){
+  const el=document.getElementById('chatunread-'+dayId);if(!el)return;
+  const n=unreadForDay(dayId);el.textContent=n?String(n):'';el.style.display=n?'inline-flex':'none';
+}
+function updateAlerts(){
+  const n=totalUnread();
+  const b=document.getElementById('alertsbadge');
+  if(b){b.textContent=n?(n>99?'99+':String(n)):'';b.style.display=n?'flex':'none';}
+  days.forEach(d=>updateDayUnread(d.id));
+  const p=document.getElementById('alertspanel');
+  if(p&&p.classList.contains('open'))renderAlertsList();
+}
+function renderAlertsList(){
+  const box=document.getElementById('alertslist');if(!box)return;
+  const items=[];
+  days.forEach(d=>{const c=chatCache[d.id]||{},base=seenBase(d.id);
+    for(const k in c){const m=c[k];if(!isOwnMsg(m)&&(m.ts||0)>base)items.push({dayId:d.id,dn:d.n,m});}});
+  items.sort((a,b)=>(b.m.ts||0)-(a.m.ts||0));
+  if(!items.length){box.innerHTML='<div class="alertsempty">🎉 You’re all caught up — no unread messages.</div>';return;}
+  box.innerHTML=items.map(it=>`<div class="alertitem" onclick="openAlertDay('${it.dayId}')">
+    <div class="alertmeta"><span class="alertday">${it.dn}</span><span class="alertname">${esc(cap(it.m.name||'Someone'))}</span><span class="alerttime">${fmtTime(it.m.ts)}</span></div>
+    <div class="alerttext">${escLines((it.m.text||'').slice(0,160))}</div></div>`).join('');
+}
+function openAlertDay(dayId){closeAlerts();focusChat(dayId);markDaySeen(dayId);}
+function toggleAlerts(){
+  const p=document.getElementById('alertspanel'),o=document.getElementById('alertsoverlay');
+  const open=p.classList.toggle('open');o.classList.toggle('open',open);
+  if(open)renderAlertsList();
+}
+function closeAlerts(){
+  const p=document.getElementById('alertspanel'),o=document.getElementById('alertsoverlay');
+  if(p)p.classList.remove('open');if(o)o.classList.remove('open');
 }
 
 /* ---- sign-in gate (real Firebase Authentication) ----
@@ -792,6 +875,7 @@ function logout(){if(authReady&&auth){auth.signOut().catch(()=>{});}else{locatio
 let appStarted=false;
 function startApp(){
   if(appStarted)return; appStarted=true;
+  loadSeen();                                          // per-account read state before painting badges
   build();
   /* live shared sync: paint from local cache first, then follow remote */
   if(remoteReady){
@@ -802,7 +886,13 @@ function startApp(){
       applyRemote(val);
     });
     wireChat();                                        // per-day chat: append-only, its own listeners
+    const ab=document.getElementById('alertsbtn');if(ab)ab.style.display='flex';
+    /* returning to the tab clears unread on any thread already open on screen */
+    document.addEventListener('visibilitychange',()=>{
+      if(document.visibilityState==='visible')days.forEach(d=>{if(openChats[d.id])markDaySeen(d.id);});
+    });
   }
+  updateAlerts();
 }
 function enterApp(name){
   document.getElementById('loginwrap').classList.add('hidden');

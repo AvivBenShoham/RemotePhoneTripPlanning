@@ -113,6 +113,13 @@ for everyone signed in and survive reloads.
   looking at that open thread. (Works while the page is open in a tab, including a
   background tab; it isn't full push-when-closed — that would need Firebase Cloud
   Messaging.)
+- **Unread alerts:** a floating **🔔** button shows a badge with how many messages
+  you haven't read yet, and each day's chat header shows its own unread count.
+  Tap the bell to see the unread messages (grouped newest-first) and jump straight
+  to any of them; opening a day's chat — or hitting **Mark all as read** — clears
+  it. Read state is per account and remembered on the device, so it persists across
+  reloads and logins (it's tracked per device — reading on your phone doesn't clear
+  the badge on your laptop). Your own messages never count as unread.
 - **Offline / preview:** with no live backend (the in-chat preview, or before the
   API key is set) the panel shows a short "needs the live page" note instead of a
   composer, matching how maps and sync already degrade.
