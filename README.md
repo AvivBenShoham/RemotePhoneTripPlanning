@@ -23,52 +23,68 @@ current device only (`localStorage`), exactly as before.
 2. **Create a Realtime Database** — left menu → *Build → Realtime Database* →
    *Create Database* → pick a region → start in **test mode** (we'll set rules
    next).
-3. **Set the security rules** — in the database's *Rules* tab, paste:
+3. **Set the security rules** — in the database's *Rules* tab, paste these
+   **auth-required** rules so only signed-in users can read or write:
    ```json
    {
      "rules": {
        "trips": {
-         "$id": { ".read": true, ".write": true }
+         "$id": {
+           ".read": "auth != null",
+           ".write": "auth != null"
+         }
        }
      }
    }
    ```
-   This is intentionally open (anyone with the link can view/edit) — privacy
-   relies on keeping the database URL and trip id unshared. Fine for a private
-   trip; see *Locking it down* below to add a gate later.
-4. **Copy the database URL** — shown at the top of the Realtime Database page
-   (e.g. `https://<project>-default-rtdb.<region>.firebasedatabase.app/`). For a
-   database with the public rules above, the URL is all the app needs — there's
-   no need to register a web app or copy an API key (those are for Firebase Auth,
-   which this app doesn't use).
-5. **Paste the URL** into `dr-itinerary.html` — set `databaseURL` in the
-   `FIREBASE_CONFIG` block near the top of the `<script>`.
-6. That's it. Open the file — edits now sync live for everyone who opens it.
+   With these rules, having the database URL is not enough — every read and write
+   must come from an account you created (see **Sign-in** below).
+4. **Paste the Web API Key** into `dr-itinerary.html` — Firebase console →
+   *Project settings* (gear) → *General* → **Web API Key**. Set it as `apiKey`
+   in the `FIREBASE_CONFIG` block near the top of the `<script>`. This key is
+   **public by design** (it only names the project; it grants no access on its
+   own — the rules do), so it's fine to commit. The `authDomain`, `projectId`,
+   and `databaseURL` are already filled in for this project.
+5. That's it — do the **Sign-in** setup below and the page syncs live for anyone
+   with a valid account.
 
 > Want a separate, independent copy of the planner? Change `TRIP_ID` in the file
 > (e.g. `"dr2026"` → `"europe2027"`). Each id is its own isolated dataset.
 
-## Sign-in
+## Sign-in (real Firebase Authentication)
 
-Opening the page shows a sign-in screen first. Name and password are both
-**case-insensitive**. Starter accounts:
+Opening the page shows a sign-in screen, and **the itinerary won't load or sync
+until you sign in** — enforced by the database rules above, not just the UI.
+Passwords are stored and verified by Firebase; they are **not** in the page
+source.
 
-| Name  | Password |
-|-------|----------|
-| Aviv  | `aviv`   |
-| Karol | `karol`  |
+**How a typed "name" becomes an account:** the login form lowercases the name and
+maps it to a Firebase email `name@tripvisualize.app` (the `EMAIL_DOMAIN` constant
+in the file). Both name and password are lowercased before sign-in, so
+capitalization never matters.
 
-To add or change people, edit the `USERS` object near the bottom of
-`dr-itinerary.html` (e.g. `const USERS={aviv:"aviv",karol:"karol",sam:"letmein"};`).
-"Log out" is in the top-right of the header; sign-in is remembered per device.
+### Create the accounts (one-time)
 
-> **What this login is (and isn't):** it's a front-door gate to keep casual
-> visitors from stumbling in and editing. It is **not** real security — the
-> usernames/passwords sit in the page source, and the database itself is still
-> openly readable/writable by anyone who has its URL. So don't reuse a real
-> password here. For genuine protection (accounts that actually gate the
-> database), the app would use Firebase Authentication with rules that require a
-> signed-in user — happy to set that up on request.
+1. Firebase console → *Build → Authentication* → *Get started* → enable the
+   **Email/Password** provider.
+2. *Authentication → Users → Add user*, once per person. Use the mapped email and
+   a **lowercase password of at least 6 characters** (Firebase's minimum — so the
+   old `aviv`/`karol` are too short):
+
+   | Person | Email (Add user)          | Example password |
+   |--------|---------------------------|------------------|
+   | Aviv   | `aviv@tripvisualize.app`  | `avivtrip`       |
+   | Karol  | `karol@tripvisualize.app` | `karoltrip`      |
+
+   They then sign in by typing just **Aviv** / **Karol** and the password.
+3. To add someone later, add another user with `<name>@tripvisualize.app`. No code
+   change needed. "Log out" is in the top-right of the header; Firebase keeps you
+   signed in across reloads on that device.
+
+> **This is real access control.** Passwords live only in Firebase, and the rules
+> reject any read/write without a signed-in account — so the database is no longer
+> open even to someone who has the URL. The one public value in the file (the Web
+> API Key) grants nothing on its own.
 
 ## Hosting one shared link (GitHub Pages)
 
@@ -92,9 +108,11 @@ a GitHub Actions workflow — [`.github/workflows/pages.yml`](.github/workflows/
 - **Concurrency:** writes save the whole state blob (last-write-wins). If two
   people edit *different* fields within the same ~0.4s window, one change can be
   dropped. Rare for a trip planner. Hardening later = per-field writes.
-- **Offline / chat preview:** if Firebase or the network isn't available, the
-  page falls back to device-only `localStorage` and keeps working; maps also need
-  a network connection to load.
-- **Locking it down:** to gate access, add a shared trip code and tighten the
-  Firebase rules (e.g. require an auth token or a secret path segment) — happy to
-  add this on request.
+- **Offline / chat preview:** if Firebase or the network isn't available (e.g. the
+  in-chat preview, or before the API key is set), the page skips the sign-in gate
+  and runs locally with `localStorage` so the itinerary is still viewable; maps
+  also need a network connection to load. Live sync and the sign-in gate are
+  active only on the hosted/online page with the API key filled in.
+- **Also secure Realtime Database reads app-wide:** the rules above only cover
+  `/trips`. If you keep other data in this database, add a top-level default like
+  `".read": false, ".write": false` outside `trips` so nothing else is exposed.
