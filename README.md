@@ -50,14 +50,20 @@ current device only (`localStorage`), exactly as before.
 
 ## Hosting one shared link (GitHub Pages)
 
-So everyone opens the same URL instead of passing files around:
+So everyone opens the same URL instead of passing files around, the repo ships
+a GitHub Actions workflow — [`.github/workflows/pages.yml`](.github/workflows/pages.yml)
+— that publishes to GitHub Pages automatically:
 
-1. Repo **Settings → Pages**.
-2. *Build and deployment* → **Deploy from a branch** → choose the branch and
-   `/ (root)` → *Save*.
-3. After it builds, the page is served at
-   `https://<user>.github.io/RemotePhoneTripPlanning/dr-itinerary.html`.
-   (Rename the file to `index.html` if you'd prefer the bare repo URL.)
+1. Every push to **`main`** builds and deploys the site (the workflow enables
+   Pages for the repo on its first run, so no manual *Settings → Pages* step is
+   needed). You can also run it on demand from the **Actions** tab
+   (*Deploy to GitHub Pages → Run workflow*).
+2. Once the first run finishes, the planner is served at
+   `https://<user>.github.io/RemotePhoneTripPlanning/` (a root `index.html`
+   redirects to `dr-itinerary.html`, which also stays reachable directly).
+
+> Prefer the classic *Deploy from a branch* setup instead? Delete the workflow
+> and set **Settings → Pages → Deploy from a branch** to `main` / `/ (root)`.
 
 ## Notes & trade-offs
 
