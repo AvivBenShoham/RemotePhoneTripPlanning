@@ -613,7 +613,7 @@ function setAccField(id,f,v){
 }
 function refreshAcc(id){const d=days.find(x=>x.id===id);const el=document.getElementById('acc-'+id);if(el)el.outerHTML=renderAcc(d);}
 function resetAll(){if(!confirm("Clear all shared booking, accommodation & to-do entries and reset optionals to the recommended picks?"))return;store=JSON.parse(JSON.stringify(defaultStore));save();build();}
-function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();paintAllChats();if(typeof updateAlerts==='function')updateAlerts();}
+function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();paintAllChats();try{if(typeof updateAlerts==='function')updateAlerts();}catch(e){}}
 
 /* ---- To-Do checklist ---- */
 const todoItems=[
@@ -862,7 +862,15 @@ function tryLogin(ev){
   if(!n||!p){err.textContent="Enter your name and password.";return false;}
   err.textContent="";setLoginBusy(true);
   auth.signInWithEmailAndPassword(n+"@"+EMAIL_DOMAIN,p)
-    .catch(()=>{                                    // success is handled by onAuthStateChanged
+    .then(cred=>{
+      /* Enter directly on success. onAuthStateChanged normally drives this, but on
+         some devices (Safari/iOS ITP, private mode, blocked storage) the auth-state
+         write can stall so the observer never fires — which would leave the sign-in
+         spinner stuck forever. enterApp() is idempotent, so a later observer is fine. */
+      const u=(cred&&cred.user)||(auth&&auth.currentUser);
+      enterApp(u&&u.email?u.email.split('@')[0]:n);
+    })
+    .catch(()=>{
       setLoginBusy(false);
       err.textContent="That name and password don't match.";
       document.getElementById('loginPass').value="";
@@ -875,24 +883,27 @@ function logout(){if(authReady&&auth){auth.signOut().catch(()=>{});}else{locatio
 let appStarted=false;
 function startApp(){
   if(appStarted)return; appStarted=true;
-  loadSeen();                                          // per-account read state before painting badges
+  try{loadSeen();}catch(e){}                            // per-account read state before painting badges
   build();
-  /* live shared sync: paint from local cache first, then follow remote */
+  /* live shared sync + chat/alerts: isolated so a failure here can never strand
+     the app on the login screen or hide the itinerary. */
   if(remoteReady){
-    dbRef.on('value',snap=>{
-      const val=snap.val();
-      if(val===null){writeRemote();return;}          // first run: seed the node from local state
-      if(stableStr(val)===lastWrittenJSON)return;      // ignore the echo of our own write
-      applyRemote(val);
-    });
-    wireChat();                                        // per-day chat: append-only, its own listeners
-    const ab=document.getElementById('alertsbtn');if(ab)ab.style.display='flex';
-    /* returning to the tab clears unread on any thread already open on screen */
-    document.addEventListener('visibilitychange',()=>{
-      if(document.visibilityState==='visible')days.forEach(d=>{if(openChats[d.id])markDaySeen(d.id);});
-    });
+    try{
+      dbRef.on('value',snap=>{
+        const val=snap.val();
+        if(val===null){writeRemote();return;}          // first run: seed the node from local state
+        if(stableStr(val)===lastWrittenJSON)return;      // ignore the echo of our own write
+        applyRemote(val);
+      });
+      wireChat();                                        // per-day chat: append-only, its own listeners
+      const ab=document.getElementById('alertsbtn');if(ab)ab.style.display='flex';
+      /* returning to the tab clears unread on any thread already open on screen */
+      document.addEventListener('visibilitychange',()=>{
+        if(document.visibilityState==='visible')days.forEach(d=>{if(openChats[d.id])markDaySeen(d.id);});
+      });
+    }catch(e){}
   }
-  updateAlerts();
+  try{updateAlerts();}catch(e){}
 }
 function enterApp(name){
   document.getElementById('loginwrap').classList.add('hidden');
