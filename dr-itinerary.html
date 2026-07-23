@@ -58,43 +58,6 @@
   .maplink{display:block;text-align:center;font-size:.78rem;padding:8px;background:#f3f8f8;color:var(--turq-d);
     text-decoration:none;font-weight:600;border-bottom:1px solid var(--line)}
   .maplink:active{background:#e7f1f1}
-  /* ---- per-location August weather (AccuWeather) ---- */
-  .wxcard{padding:11px 14px 12px;background:linear-gradient(100deg,#eaf7f6,#f3fbfb);border-bottom:1px solid var(--line)}
-  .wxtop{display:flex;align-items:center;gap:6px;font-size:.72rem;font-weight:700;color:var(--turq-d);
-    text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;flex-wrap:wrap}
-  .wxsrc{margin-left:auto;font-size:.68rem;font-weight:600;color:var(--turq-d);text-decoration:none;
-    text-transform:none;letter-spacing:0;background:#fff;border:1px solid var(--line);border-radius:20px;padding:2px 9px}
-  .wxsrc:active{opacity:.7}
-  .wxstatus{font-size:.7rem;font-weight:700;color:var(--muted);margin-bottom:8px;display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-  .wxlive{display:inline-flex;align-items:center;gap:4px;color:var(--spot);font-weight:800;letter-spacing:.3px}
-  .wxclim{display:inline-flex;align-items:center;gap:4px;color:var(--ahead);font-weight:800;letter-spacing:.3px}
-  .wxkey{background:#fff;border:1px solid var(--line);border-radius:20px;padding:2px 8px;font-size:.68rem;font-weight:700;
-    color:var(--turq-d);cursor:pointer;font-family:inherit}
-  .wxkey.cta{background:var(--sky);border-color:var(--turq)}
-  .wxkey:active{transform:scale(.97)}
-  .wxrow{display:flex;flex-wrap:wrap;gap:7px}
-  .wxchip{display:inline-flex;align-items:center;gap:6px;font-size:.76rem;background:#fff;border:1px solid var(--line);
-    border-radius:9px;padding:5px 9px;color:var(--ink);font-weight:600}
-  .wxchip .wl{color:var(--muted);font-weight:600;font-size:.68rem;text-transform:uppercase;letter-spacing:.3px}
-  .wxchip.stormlvl-low{background:#f0f9f4;border-color:#bfe3ce;color:#227a52}
-  .wxchip.stormlvl-mod{background:#fffaf0;border-color:#f2d59a;color:#8a6516}
-  .wxchip.stormlvl-high{background:#fff0ec;border-color:#f4b6a8;color:var(--coral-d)}
-  .wxnote{font-size:.7rem;color:var(--muted);margin-top:7px;font-style:italic;display:flex;gap:5px;align-items:flex-start}
-  .wxchip.beach{font-weight:700}
-  /* beach-day outlook (weekly) */
-  .wxweek{margin-top:9px;border:1px solid var(--line);border-radius:11px;background:#fff;overflow:hidden}
-  .wxweekhead{display:flex;align-items:center;gap:7px;padding:9px 11px;cursor:pointer;font-size:.78rem;font-weight:700;color:var(--turq-d)}
-  .wxweekhead .wxchev{margin-left:auto;transition:transform .2s;font-size:.7rem;color:var(--muted)}
-  .wxweek.open .wxweekhead .wxchev{transform:rotate(180deg)}
-  .wxweekbody{display:none;padding:0 11px 10px;border-top:1px solid var(--line)}
-  .wxweek.open .wxweekbody{display:block}
-  .wkhint{font-size:.66rem;color:var(--muted);padding:8px 0 6px;font-style:italic}
-  .wkrow{display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px dashed var(--line);font-size:.76rem}
-  .wkrow:last-child{border-bottom:0}
-  .wkrow.cur{background:var(--sky);margin:0 -11px;padding:7px 11px;border-radius:6px}
-  .wkday{flex:0 0 62px;font-weight:700}
-  .wkmet{flex:1;min-width:0;color:var(--muted);font-size:.72rem;white-space:nowrap;overflow-x:auto}
-  .wkscore{flex:0 0 auto;font-weight:800;border-radius:8px;padding:3px 8px;border:1px solid var(--line)}
   .stops{padding:6px 14px 4px}
   .stop{display:flex;gap:11px;padding:12px 0;border-bottom:1px dashed var(--line)}
   .stop:last-child{border-bottom:0}
@@ -405,91 +368,6 @@ const optionals={
     choices:{strip:{name:"El Cortecito strip",rec:true,cost:25,desc:"Local bars, walkable, cheap. Plenty after a travel day."},
       coco:{name:"Coco Bongo",cost:170,desc:"⚠ Show-club with performances; ticket ~$85pp. Confirm it operates on a Monday before planning around it."}}}
 };
-/* ----------------------------------------------------------------------------
-   WEATHER per location — live forecast fetched on load, with a source cascade.
-
-   On entrance the page fetches a live daily forecast for each of the three
-   locations and each day's card fills with the REAL forecast for that exact
-   date. Three sources, best first:
-     1. AccuWeather (free tier, 5 days ahead) — used when a key is set below
-        and the date is within 5 days of travel. Gives a real thunderstorm
-        probability %, which the others don't.
-     2. Open-Meteo (free, no key, 16 days ahead) — fills days 6–16 out and is
-        the fallback if AccuWeather is unset, over quota, or blocked by CORS.
-     3. Typical-August baseline (AccuWeather monthly pages) — shown for any
-        date still beyond the live window.
-   A per-card badge names which source is showing. The "AccuWeather →" link
-   always opens the monthly source page. August is peak Atlantic hurricane
-   season: a passing tropical system overrides any forecast — watch the NHC
-   (nhc.noaa.gov).
-   ---------------------------------------------------------------------------- */
-/* AccuWeather API key — NOT stored in this file on purpose.
-   The site deploys to GitHub Pages (public), so a key committed here would be
-   world-readable and could be abused. Instead it's entered once at runtime
-   (weather card -> "Set AccuWeather key") and saved to the auth-gated Firebase
-   sync (reaching everyone signed in) with a per-device localStorage fallback.
-   (free "Core Weather Limited Trial": 50 calls/day; this page uses <=3 per load,
-   cached 30 min). With no key the page falls back to Open-Meteo. Location keys
-   (awKey) come from each AccuWeather URL, so no extra lookup call is spent. */
-const ACCUWEATHER_KEY_LS="dr_accu_key";
-function getAccuKey(){
-  try{if(store&&store.accuKey)return String(store.accuKey).trim();}catch(e){}
-  try{const k=localStorage.getItem(ACCUWEATHER_KEY_LS);if(k)return k.trim();}catch(e){}
-  return "";
-}
-function setAccuKey(){
-  const cur=getAccuKey();
-  const k=prompt("Paste your AccuWeather API key (free tier at developer.accuweather.com).\nIt syncs to everyone signed in and is NOT committed to the repo.",cur||"");
-  if(k===null)return;
-  const v=k.trim();
-  try{store.accuKey=v;save();}catch(e){}
-  try{v?localStorage.setItem(ACCUWEATHER_KEY_LS,v):localStorage.removeItem(ACCUWEATHER_KEY_LS);}catch(e){}
-  weatherFetched=false;liveWx={};                      // re-fetch with the new key
-  loadWeather();paintWeather();
-}
-function clearAccuKey(){
-  try{delete store.accuKey;save();}catch(e){}
-  try{localStorage.removeItem(ACCUWEATHER_KEY_LS);}catch(e){}
-  weatherFetched=false;liveWx={};wxCache={};persistWxCache();
-  loadWeather();paintWeather();
-}
-const weather={
-  lt:{loc:"Las Terrenas", coords:[19.3087,-69.5443], awKey:"464081",
-    url:"https://www.accuweather.com/en/do/las-terrenas/464081/august-weather/464081",
-    temp:"31° / 24°C · 88° / 76°F",
-    skyIco:"⛅", sky:"Partly cloudy — clouds build in the afternoon",
-    rainIco:"🌧️", rain:"Frequent PM showers · wettest of the three (~16 rainy days)",
-    stormIco:"⛈️", storm:"Afternoon thunderstorms fairly common", stormLvl:"mod"},
-  bh:{loc:"Bayahibe", coords:[18.3607,-68.8419], awKey:"123411",
-    url:"https://www.accuweather.com/en/do/bayahibe/123411/august-weather/123411",
-    temp:"32° / 25°C · 89° / 77°F",
-    skyIco:"🌤️", sky:"Mostly sunny — sunniest, driest of the three",
-    rainIco:"🌦️", rain:"Brief passing showers · light monthly totals",
-    stormIco:"🌩️", storm:"Thunderstorms infrequent (~4 storm days/mo)", stormLvl:"low"},
-  pc:{loc:"Punta Cana", coords:[18.5820,-68.4055], awKey:"462477",
-    url:"https://www.accuweather.com/en/do/punta-cana/462477/august-weather/462477",
-    temp:"31° / 27°C · 88° / 80°F",
-    skyIco:"⛅", sky:"Partly sunny & humid — warmest nights",
-    rainIco:"🌦️", rain:"Short afternoon showers, then it clears",
-    stormIco:"⛈️", storm:"PM / evening thunderstorms possible", stormLvl:"mod"}
-};
-/* which location's weather applies to each day + that day's calendar date */
-const dayWeather={d1:"lt",d2:"lt",d3:"lt",d4:"bh",d5:"bh",d6:"bh",d7:"pc",d8:"pc",d9:"pc"};
-const dayISO={d1:"2026-08-11",d2:"2026-08-12",d3:"2026-08-13",d4:"2026-08-14",d5:"2026-08-15",
-  d6:"2026-08-16",d7:"2026-08-17",d8:"2026-08-18",d9:"2026-08-19"};
-let liveWx={};              // merged forecast in memory {locKey:{isoDate:{...}}}
-let weatherFetched=false;   // run the load routine once per page load
-const openWeeks={};         // which "beach-day outlook" panels are expanded
-/* 30-minute client-side cache: skip the network entirely while a source's data
-   is still fresh, so reopening/reloading the page doesn't burn API calls. */
-const WX_CACHE_KEY="dr_wx_cache_v1", WX_TTL=30*60*1000, HIST_TTL=30*24*60*60*1000; // 30 min / 30 days
-let wxCache={};
-try{const _r=localStorage.getItem(WX_CACHE_KEY);if(_r)wxCache=JSON.parse(_r)||{};}catch(e){}
-function persistWxCache(){try{localStorage.setItem(WX_CACHE_KEY,JSON.stringify(wxCache));}catch(e){}}
-function wxCacheFresh(loc,src,ttl){const c=wxCache[loc]&&wxCache[loc][src];return !!(c&&c.ts&&(Date.now()-c.ts)<(ttl||WX_TTL));}
-function wxCacheAgeMin(loc,src){const c=wxCache[loc]&&wxCache[loc][src];return c&&c.ts?Math.round((Date.now()-c.ts)/60000):null;}
-function wxCacheSet(loc,src,entries){wxCache[loc]=wxCache[loc]||{};wxCache[loc][src]={ts:Date.now(),entries};persistWxCache();}
-
 const NIGHTLY_DEFAULT=60;
 const LS_KEY="dr_itin_v3";
 
@@ -650,285 +528,24 @@ function renderAcc(d){
       <div id="acclink-${d.id}">${accLinkHTML(a)}</div>
     </div></div>`;
 }
-/* map an Open-Meteo WMO weather code → [icon, sky text] */
-function wxSky(c){
-  if(c===0)return["☀️","Clear & sunny"];
-  if(c===1)return["🌤️","Mostly sunny"];
-  if(c===2)return["⛅","Partly cloudy"];
-  if(c===3)return["☁️","Overcast"];
-  if(c===45||c===48)return["🌫️","Fog"];
-  if(c>=51&&c<=57)return["🌦️","Drizzle"];
-  if(c>=61&&c<=67)return["🌧️","Rain"];
-  if(c>=80&&c<=82)return["🌦️","Rain showers"];
-  if(c>=95)return["⛈️","Thunderstorms"];
-  return["⛅","Mixed skies"];
+/* AccuWeather page per day's location — tap to see that spot's live weather */
+const dayWeather={
+  d1:["Las Terrenas","https://www.accuweather.com/en/do/las-terrenas/464081/august-weather/464081"],
+  d2:["Las Terrenas","https://www.accuweather.com/en/do/las-terrenas/464081/august-weather/464081"],
+  d3:["Las Terrenas","https://www.accuweather.com/en/do/las-terrenas/464081/august-weather/464081"],
+  d4:["Bayahibe","https://www.accuweather.com/en/do/bayahibe/123411/august-weather/123411"],
+  d5:["Bayahibe","https://www.accuweather.com/en/do/bayahibe/123411/august-weather/123411"],
+  d6:["Bayahibe","https://www.accuweather.com/en/do/bayahibe/123411/august-weather/123411"],
+  d7:["Punta Cana","https://www.accuweather.com/en/do/punta-cana/462477/august-weather/462477"],
+  d8:["Punta Cana","https://www.accuweather.com/en/do/punta-cana/462477/august-weather/462477"],
+  d9:["Punta Cana","https://www.accuweather.com/en/do/punta-cana/462477/august-weather/462477"],
+  d10:["Santo Domingo","https://www.accuweather.com/en/do/santo-domingo/125887/august-weather/125887"],
+  d11:["Santo Domingo","https://www.accuweather.com/en/do/santo-domingo/125887/august-weather/125887"]
+};
+function wxLink(d){
+  const w=dayWeather[d.id];if(!w)return "";
+  return `<a class="maplink" href="${w[1]}" target="_blank" rel="noopener">🌦️ ${esc(w[0])} weather on AccuWeather →</a>`;
 }
-function fmtDate(iso){const d=new Date(iso+"T12:00:00");return d.toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"});}
-/* map an AccuWeather day phrase (+ cloud %) → [icon, sky text] */
-function accuSky(phrase,cloud){
-  const p=(phrase||"").toLowerCase();let ico="⛅";
-  if(/thunder|t-storm|storm/.test(p))ico="⛈️";
-  else if(/shower|rain|drizzle/.test(p))ico="🌧️";
-  else if(/fog|haze|mist/.test(p))ico="🌫️";
-  else if(cloud!=null)ico=cloud<25?"☀️":cloud<50?"🌤️":cloud<75?"⛅":"☁️";
-  else if(/sunny|clear/.test(p))ico="☀️";
-  else if(/cloud|overcast|dreary/.test(p))ico="☁️";
-  const txt=phrase?phrase+(cloud!=null?` · ${cloud}% cloud`:""):(cloud!=null?cloud+"% cloud":"—");
-  return[ico,txt];
-}
-/* ---- Beach-Day Score --------------------------------------------------------
-   A 0–100 score for "is this a good beach day", blended from the AccuWeather
-   fields that actually matter on a beach: rain chance, thunderstorm chance
-   (safety + washout), cloud cover, how hot it *feels* (RealFeel), wind (chop &
-   sand-blowing), and UV. Missing inputs (e.g. Open-Meteo has no storm %) are
-   skipped, so the score degrades gracefully by source. */
-function beachScore(e){
-  if(!e)return null;
-  let s=100;
-  const rain=(e.pprob!=null)?e.pprob:null;            // % chance of any precip
-  if(rain!=null)s-=0.55*rain;
-  const storm=(e.tstorm!=null)?e.tstorm:((e.code!=null&&e.code>=95)?70:null);
-  if(storm!=null)s-=0.85*storm;
-  if(e.cloud!=null)s-=0.22*e.cloud;                   // full overcast ≈ -22
-  const feel=(e.feels!=null)?e.feels:e.tmax;          // RealFeel high, else air temp
-  if(feel!=null){ if(feel<24)s-=(24-feel)*3.5; else if(feel>34)s-=(feel-34)*3.5; }
-  if(e.wind!=null&&e.wind>25)s-=(e.wind-25)*1.1;       // km/h; breezy is fine, gusty isn't
-  if(e.uv!=null&&e.uv>=11)s-=6;                        // extreme UV: doable but shade-up
-  return Math.max(0,Math.min(100,Math.round(s)));
-}
-function beachLabel(sc){
-  if(sc==null)return["🏖️","—","mod"];
-  if(sc>=80)return["🏖️","Perfect beach day","low"];
-  if(sc>=65)return["⛱️","Great for the beach","low"];
-  if(sc>=50)return["😎","Good beach odds","mod"];
-  if(sc>=35)return["🌥️","Iffy — could go either way","mod"];
-  return["🌧️","Poor — skip the beach","high"];
-}
-/* build the chips + header. Three data modes, resolved per date:
-   forecast (AccuWeather / Open-Meteo, ≤16 days), climatology (10-yr average for
-   this exact calendar date, used when no forecast reaches it), or the hand-typed
-   baseline (only if even the historical fetch failed). */
-function wxContent(key,iso){
-  const w=weather[key];
-  const e=liveWx[key]&&liveWx[key][iso];
-  if(e&&e.tmax!=null){
-    const clim=e.src==="climatology";
-    const cMax=Math.round(e.tmax),cMin=Math.round(e.tmin);
-    const fMax=Math.round(e.tmax*9/5+32),fMin=Math.round(e.tmin*9/5+32);
-    let sIco,sTxt,rainIco,rainTxt,stormIco,stormTxt,lvl;
-    if(e.src==="accuweather"){
-      [sIco,sTxt]=accuSky(e.phrase,e.cloud);
-      const pr=e.pprob;
-      rainIco=(pr!=null&&pr>=50)?"🌧️":"🌦️";
-      rainTxt=(pr!=null?pr+"% chance":"see forecast");
-      const ts=e.tstorm;
-      lvl=(ts!=null)?(ts>=50?"high":ts>=25?"mod":"low"):"mod";
-      stormIco=(ts!=null&&ts>=25)?"⛈️":"🌩️";
-      stormTxt=(ts!=null)?ts+"% storm chance":"see forecast";
-    }else{
-      [sIco,sTxt]=wxSky(e.code);
-      const pr=e.pprob,mm=(e.psum!=null)?Math.round(e.psum*10)/10:null;
-      rainIco=((pr!=null&&pr>=50)||(mm!=null&&mm>=3))?"🌧️":"🌦️";
-      rainTxt=clim?(pr!=null?pr+"% of yrs wet":"—")+(mm!=null?` · ~${mm}mm`:"")
-                  :(pr!=null?pr+"% chance":"showers")+(mm!=null?` · ${mm} mm`:"");
-      const ts=e.tstorm;
-      if(ts!=null){
-        lvl=ts>=50?"high":ts>=25?"mod":"low";
-        stormIco=ts>=25?"⛈️":"🌩️";
-        stormTxt=clim?ts+"% of yrs stormy":ts+"% storm chance";
-      }else{
-        const thunder=e.code>=95;
-        lvl=thunder?"high":(pr!=null&&pr>=55?"mod":"low");
-        stormIco=thunder?"⛈️":"🌩️";
-        stormTxt=thunder?"Thunderstorms in the forecast":(pr!=null&&pr>=55?"Storms possible":"Storm unlikely");
-      }
-    }
-    const srcName=e.src==="accuweather"?"AccuWeather":(clim?"climatology":"Open-Meteo");
-    const badge=clim
-      ? `<span class="wxclim">📆 TYPICAL</span> ${fmtDate(iso)} · ${e.years||"—"}-yr average`
-      : `<span class="wxlive">● LIVE</span> Forecast · ${fmtDate(iso)} · ${srcName}`;
-    const sc=beachScore(e),[bIco,bTxt,bLvl]=beachLabel(sc);
-    return {mode:clim?"climatology":"forecast", live:!clim, clim, src:srcName, badge,
-      temp:`${cMax}° / ${cMin}°C · ${fMax}° / ${fMin}°F`, skyIco:sIco, sky:sTxt,
-      rainIco, rain:rainTxt, stormIco, storm:stormTxt, stormLvl:lvl,
-      feels:(e.feels!=null)?Math.round(e.feels):null, uv:(e.uv!=null)?Math.round(e.uv):null,
-      wind:(e.wind!=null)?Math.round(e.wind):null,
-      beachIco:bIco, beach:bTxt, beachScore:sc, beachLvl:bLvl};
-  }
-  return {mode:"baseline", live:false, clim:false, src:null,
-    badge:`📅 Typical August · switches to live within ~16 days of travel`,
-    temp:w.temp, skyIco:w.skyIco, sky:w.sky, rainIco:w.rainIco, rain:w.rain,
-    stormIco:w.stormIco, storm:w.storm, stormLvl:w.stormLvl||"mod", beachScore:null};
-}
-/* one row per TRIP date at its location — a whole-trip beach-day comparison */
-function tripRows(curId){
-  return days.filter(d=>dayWeather[d.id]).map(d=>{
-    const key=dayWeather[d.id],iso=dayISO[d.id],e=liveWx[key]&&liveWx[key][iso];
-    const sc=e?beachScore(e):null,[bIco,,bLvl]=beachLabel(sc);
-    const sIco=e?(e.src==="accuweather"?accuSky(e.phrase,e.cloud)[0]:wxSky(e.code)[0]):"·";
-    const tmax=(e&&e.tmax!=null)?Math.round(e.tmax):"–",tmin=(e&&e.tmin!=null)?Math.round(e.tmin):"–";
-    const rain=(e&&e.pprob!=null)?e.pprob+"%":"–";
-    const storm=(e&&e.tstorm!=null)?e.tstorm+"%":((e&&e.code!=null&&e.code>=95)?"yes":"–");
-    const dd=new Date(iso+"T12:00:00"),dlabel=dd.toLocaleDateString(undefined,{month:"short",day:"numeric"});
-    return `<div class="wkrow${d.id===curId?" cur":""}">
-      <div class="wkday">${sIco} ${dlabel}</div>
-      <div class="wkmet">${esc(weather[key].loc)} · ${tmax}°/${tmin}° · 🌧️${rain} ⛈️${storm}</div>
-      <div class="wkscore stormlvl-${bLvl}">${bIco} ${sc!=null?sc:"–"}</div>
-    </div>`;
-  }).join("");
-}
-function renderWx(d){
-  const key=dayWeather[d.id];if(!key)return "";
-  const w=weather[key];const iso=dayISO[d.id];
-  const c=wxContent(key,iso);
-  const stormClass="stormlvl-"+c.stormLvl;
-  const note=c.mode==="forecast"
-    ? `<span>🌀</span><span>Live forecast (${c.src}), cached 30 min. August is peak hurricane season — for tropical systems watch the NHC.</span>`
-    : c.mode==="climatology"
-    ? `<span>📆</span><span>No forecast reaches these dates yet (>16 days out) — this is the historical average for ${esc(fmtDate(iso))} from ~10 years of records, so treat it as the odds, not a forecast. It becomes a live forecast within ~16 days of travel. Peak hurricane season: watch the NHC.</span>`
-    : `<span>🌀</span><span>Typical-August baseline — the live forecast reaches these dates within ~16 days of travel. Peak hurricane season: re-check the NHC.</span>`;
-  /* extra chips: how it feels, UV, wind, and the beach-day verdict */
-  let extra="";
-  if(c.mode!=="baseline"){
-    const bits=[];
-    if(c.feels!=null)bits.push(`<span class="wxchip"><span class="wl">Feels</span> 🥵 ${c.feels}°C</span>`);
-    if(c.uv!=null)bits.push(`<span class="wxchip"><span class="wl">UV</span> 🔆 ${c.uv}</span>`);
-    if(c.wind!=null)bits.push(`<span class="wxchip"><span class="wl">Wind</span> 💨 ${c.wind} km/h</span>`);
-    if(c.beachScore!=null)bits.push(`<span class="wxchip beach stormlvl-${c.beachLvl}"><span class="wl">Beach</span> ${c.beachIco} ${esc(c.beach)} · ${c.beachScore}/100</span>`);
-    if(bits.length)extra=`<div class="wxrow" style="margin-top:7px">${bits.join("")}</div>`;
-  }
-  const rows=tripRows(d.id);
-  const openCls=openWeeks[d.id]?" open":"";
-  const week=rows?`<div class="wxweek${openCls}" id="wxweek-${d.id}">
-      <div class="wxweekhead" onclick="toggleWeek('${d.id}')">🏖️ Trip beach-day outlook · all dates<span class="wxchev">▾</span></div>
-      <div class="wxweekbody"><div class="wkhint">Beach score (0–100) blends rain, storm, cloud, RealFeel, wind &amp; UV. Forecast within 16 days, else the 10-yr average.</div>${rows}</div>
-    </div>`:"";
-  return `<div class="wxcard" id="wx-${d.id}">
-    <div class="wxtop">🌤️ Weather · ${esc(w.loc)}
-      <a class="wxsrc" href="${w.url}" target="_blank" rel="noopener">AccuWeather →</a></div>
-    <div class="wxstatus">${c.badge}<span style="margin-left:auto">${getAccuKey()
-      ?`<button class="wxkey" onclick="setAccuKey()" title="Update or remove AccuWeather key">🔑</button>`
-      :`<button class="wxkey cta" onclick="setAccuKey()">🔑 Set AccuWeather key</button>`}</span></div>
-    <div class="wxrow">
-      <span class="wxchip"><span class="wl">Temp</span> 🌡️ ${esc(c.temp)}</span>
-      <span class="wxchip"><span class="wl">Sky</span> ${c.skyIco} ${esc(c.sky)}</span>
-      <span class="wxchip"><span class="wl">Rain</span> ${c.rainIco} ${esc(c.rain)}</span>
-      <span class="wxchip ${stormClass}"><span class="wl">Storm</span> ${c.stormIco} ${esc(c.storm)}</span>
-    </div>
-    ${extra}
-    ${week}
-    <div class="wxnote">${note}</div>
-  </div>`;
-}
-function toggleWeek(id){const b=document.getElementById('wxweek-'+id);if(!b)return;openWeeks[id]=b.classList.toggle('open');}
-/* merge a forecast entry, keeping the higher-priority source (AccuWeather > Open-Meteo) */
-function mergeWx(key,iso,entry){
-  liveWx[key]=liveWx[key]||{};
-  const cur=liveWx[key][iso];
-  if(cur&&(cur.prio||0)>(entry.prio||0))return;
-  liveWx[key][iso]=entry;
-}
-function mergeEntries(key,entries){if(entries)Object.keys(entries).forEach(iso=>mergeWx(key,iso,entries[iso]));}
-/* Open-Meteo: free, no key, ~16 days ahead — fallback + days 6–16 out.
-   Enriched with apparent temp, UV & wind so the beach score works here too. */
-function fetchOpenMeteo(key){
-  const[la,lo]=weather[key].coords;
-  const url="https://api.open-meteo.com/v1/forecast?latitude="+la+"&longitude="+lo+
-    "&daily=weather_code,temperature_2m_max,temperature_2m_min,apparent_temperature_max,"+
-    "precipitation_sum,precipitation_probability_max,uv_index_max,wind_speed_10m_max"+
-    "&timezone=America%2FSanto_Domingo&forecast_days=16";
-  return fetch(url).then(r=>r.ok?r.json():Promise.reject()).then(j=>{
-    const dl=j&&j.daily;if(!dl||!dl.time)return;
-    const entries={};
-    dl.time.forEach((t,i)=>{entries[t]={src:"openmeteo",prio:1,code:dl.weather_code[i],
-      tmax:dl.temperature_2m_max[i],tmin:dl.temperature_2m_min[i],
-      feels:dl.apparent_temperature_max?dl.apparent_temperature_max[i]:null,
-      psum:dl.precipitation_sum[i],pprob:dl.precipitation_probability_max[i],
-      uv:dl.uv_index_max?dl.uv_index_max[i]:null,
-      wind:dl.wind_speed_10m_max?dl.wind_speed_10m_max[i]:null};});
-    wxCacheSet(key,"om",entries);mergeEntries(key,entries);paintWeather();
-  });
-}
-/* AccuWeather: free tier, 5 days ahead — richest source (RealFeel, UV, storm %) */
-function fetchAccu(key){
-  const w=weather[key];
-  const url="https://dataservice.accuweather.com/forecasts/v1/daily/5day/"+w.awKey+
-    "?apikey="+encodeURIComponent(getAccuKey())+"&details=true&metric=true";
-  return fetch(url).then(r=>r.ok?r.json():Promise.reject()).then(j=>{
-    const fc=j&&j.DailyForecasts;if(!fc||!fc.length)return;
-    const entries={};
-    fc.forEach(f=>{
-      const iso=(f.Date||"").slice(0,10);if(!iso)return;
-      const day=f.Day||{},T=f.Temperature||{},RF=f.RealFeelTemperature||{};
-      let uv=null;(f.AirAndPollen||[]).forEach(a=>{if(a&&a.Name==="UVIndex")uv=a.Value;});
-      entries[iso]={src:"accuweather",prio:2,
-        tmax:T.Maximum?T.Maximum.Value:null, tmin:T.Minimum?T.Minimum.Value:null,
-        feels:RF.Maximum?RF.Maximum.Value:null,
-        phrase:day.IconPhrase||"", cloud:(day.CloudCover!=null?day.CloudCover:null),
-        pprob:day.PrecipitationProbability, tstorm:day.ThunderstormProbability,
-        wind:(day.Wind&&day.Wind.Speed)?day.Wind.Speed.Value:null, uv:uv};
-    });
-    wxCacheSet(key,"accu",entries);mergeEntries(key,entries);paintWeather();
-  });
-}
-/* Climatology: Open-Meteo Historical (ERA5), free/no-key. For the trip window
-   (Aug 8–22) it averages the same calendar date across the last ~10 years to
-   give real per-date typicals — used for dates beyond the 16-day forecast reach.
-   Rain/storm are expressed as the % of past years that were wet / stormy. */
-function _avg(a){return a.length?a.reduce((x,y)=>x+y,0)/a.length:null;}
-function _mode(a){const m={};let best=null,bn=-1;a.forEach(v=>{m[v]=(m[v]||0)+1;if(m[v]>bn){bn=m[v];best=v;}});return best==null?null:+best;}
-function fetchClimatology(key){
-  const[la,lo]=weather[key].coords;
-  const endY=new Date().getFullYear()-1,startY=endY-9;   // last 10 complete years
-  const url="https://archive-api.open-meteo.com/v1/archive?latitude="+la+"&longitude="+lo+
-    "&start_date="+startY+"-08-01&end_date="+endY+"-08-31"+
-    "&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weather_code,wind_speed_10m_max"+
-    "&timezone=America%2FSanto_Domingo";
-  return fetch(url).then(r=>r.ok?r.json():Promise.reject()).then(j=>{
-    const dl=j&&j.daily;if(!dl||!dl.time)return;
-    const buckets={};                                    // "DD" -> arrays across years
-    dl.time.forEach((t,i)=>{
-      if(t.slice(5,7)!=="08")return;const dn=+t.slice(8,10);if(dn<8||dn>22)return;
-      const b=buckets[dn]||(buckets[dn]={tmax:[],tmin:[],pr:[],codes:[],wind:[]});
-      const p=(arr,v)=>{if(v!=null&&!isNaN(v))arr.push(v);};
-      p(b.tmax,dl.temperature_2m_max[i]);p(b.tmin,dl.temperature_2m_min[i]);
-      p(b.pr,dl.precipitation_sum[i]);if(dl.weather_code[i]!=null)b.codes.push(dl.weather_code[i]);
-      p(b.wind,dl.wind_speed_10m_max[i]);
-    });
-    const entries={};
-    Object.keys(buckets).forEach(dn=>{
-      const b=buckets[dn],n=b.tmax.length;if(!n)return;
-      const pct=(arr,f)=>arr.length?Math.round(100*arr.filter(f).length/arr.length):null;
-      const iso="2026-08-"+String(dn).padStart(2,"0");
-      entries[iso]={src:"climatology",prio:0,years:n,
-        tmax:_avg(b.tmax),tmin:_avg(b.tmin),wind:_avg(b.wind),
-        psum:Math.round(_avg(b.pr)*10)/10,code:_mode(b.codes),
-        pprob:pct(b.pr,v=>v>=1),tstorm:pct(b.codes,c=>c>=95)};
-    });
-    wxCacheSet(key,"clim",entries);mergeEntries(key,entries);paintWeather();
-  });
-}
-/* load forecasts once per page load: use cache when fresh (30 min live / 30 days
-   climatology), else fetch. Climatology fills the trip dates now; the live
-   forecast overrides them as they enter the 16-day window. */
-function loadWeather(){
-  if(weatherFetched||typeof fetch!=="function")return;
-  weatherFetched=true;
-  const useAccu=!!getAccuKey();
-  Object.keys(weather).forEach(key=>{
-    if(wxCacheFresh(key,"clim",HIST_TTL))mergeEntries(key,wxCache[key].clim.entries);
-    else fetchClimatology(key).catch(()=>{});
-    if(wxCacheFresh(key,"om"))mergeEntries(key,wxCache[key].om.entries);
-    else fetchOpenMeteo(key).catch(()=>{});
-    if(useAccu){
-      if(wxCacheFresh(key,"accu"))mergeEntries(key,wxCache[key].accu.entries);
-      else fetchAccu(key).catch(()=>{});
-    }
-  });
-  paintWeather();
-}
-/* repaint the weather cards in place (used after a fetch and after any rebuild) */
-function paintWeather(){days.forEach(d=>{if(!dayWeather[d.id])return;const el=document.getElementById('wx-'+d.id);if(el)el.outerHTML=renderWx(d);});}
 function renderDay(d){
   const swapBadge=d.swap?`<span class="tag ahead" style="margin-left:6px">🔁 swappable</span>`:"";
   return `<div class="day">
@@ -936,7 +553,7 @@ function renderDay(d){
       <div class="daycost"><div class="dc" id="dc-${d.id}">$${dayCost(d)}</div><div class="dcl">day total</div></div></div>
     <div id="map-${d.id}" class="lmap"></div>
     <a class="maplink" href="${gmapsDir(d)}" target="_blank" rel="noopener">🗺️ Open this day's route in Google Maps →</a>
-    ${renderWx(d)}
+    ${wxLink(d)}
     <div class="stops">${d.stops.map(renderStop).join("")}</div>
     ${renderAcc(d)}${renderChat(d)}</div>`;
 }
@@ -979,7 +596,7 @@ function setAccField(id,f,v){
 }
 function refreshAcc(id){const d=days.find(x=>x.id===id);const el=document.getElementById('acc-'+id);if(el)el.outerHTML=renderAcc(d);}
 function resetAll(){if(!confirm("Clear all shared booking, accommodation & to-do entries and reset optionals to the recommended picks?"))return;store=JSON.parse(JSON.stringify(defaultStore));save();build();}
-function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();paintAllChats();paintWeather();}
+function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();paintAllChats();}
 
 /* ---- To-Do checklist ---- */
 const todoItems=[
@@ -1121,7 +738,6 @@ let appStarted=false;
 function startApp(){
   if(appStarted)return; appStarted=true;
   build();
-  loadWeather();                                     // live forecast, refreshed each load
   /* live shared sync: paint from local cache first, then follow remote */
   if(remoteReady){
     dbRef.on('value',snap=>{
