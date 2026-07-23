@@ -58,6 +58,21 @@
   .maplink{display:block;text-align:center;font-size:.78rem;padding:8px;background:#f3f8f8;color:var(--turq-d);
     text-decoration:none;font-weight:600;border-bottom:1px solid var(--line)}
   .maplink:active{background:#e7f1f1}
+  /* ---- per-location August weather (AccuWeather) ---- */
+  .wxcard{padding:11px 14px 12px;background:linear-gradient(100deg,#eaf7f6,#f3fbfb);border-bottom:1px solid var(--line)}
+  .wxtop{display:flex;align-items:center;gap:6px;font-size:.72rem;font-weight:700;color:var(--turq-d);
+    text-transform:uppercase;letter-spacing:.4px;margin-bottom:8px;flex-wrap:wrap}
+  .wxsrc{margin-left:auto;font-size:.68rem;font-weight:600;color:var(--turq-d);text-decoration:none;
+    text-transform:none;letter-spacing:0;background:#fff;border:1px solid var(--line);border-radius:20px;padding:2px 9px}
+  .wxsrc:active{opacity:.7}
+  .wxrow{display:flex;flex-wrap:wrap;gap:7px}
+  .wxchip{display:inline-flex;align-items:center;gap:6px;font-size:.76rem;background:#fff;border:1px solid var(--line);
+    border-radius:9px;padding:5px 9px;color:var(--ink);font-weight:600}
+  .wxchip .wl{color:var(--muted);font-weight:600;font-size:.68rem;text-transform:uppercase;letter-spacing:.3px}
+  .wxchip.stormlvl-low{background:#f0f9f4;border-color:#bfe3ce;color:#227a52}
+  .wxchip.stormlvl-mod{background:#fffaf0;border-color:#f2d59a;color:#8a6516}
+  .wxchip.stormlvl-high{background:#fff0ec;border-color:#f4b6a8;color:var(--coral-d)}
+  .wxnote{font-size:.7rem;color:var(--muted);margin-top:7px;font-style:italic;display:flex;gap:5px;align-items:flex-start}
   .stops{padding:6px 14px 4px}
   .stop{display:flex;gap:11px;padding:12px 0;border-bottom:1px dashed var(--line)}
   .stop:last-child{border-bottom:0}
@@ -368,6 +383,33 @@ const optionals={
     choices:{strip:{name:"El Cortecito strip",rec:true,cost:25,desc:"Local bars, walkable, cheap. Plenty after a travel day."},
       coco:{name:"Coco Bongo",cost:170,desc:"⚠ Show-club with performances; ticket ~$85pp. Confirm it operates on a Monday before planning around it."}}}
 };
+/* ----------------------------------------------------------------------------
+   AUGUST WEATHER per location — sourced from AccuWeather's monthly pages
+   (temperature, sky, precipitation & storm outlook). These are typical-August
+   figures for the trip window, not a live forecast — always re-check a few days
+   out. August is peak Atlantic hurricane season, so a passing tropical system
+   can override any of this: watch the US National Hurricane Center (nhc.noaa.gov).
+   ---------------------------------------------------------------------------- */
+const weather={
+  lt:{loc:"Las Terrenas",url:"https://www.accuweather.com/en/do/las-terrenas/464081/august-weather/464081",
+    temp:"31° / 24°C · 88° / 76°F",
+    skyIco:"⛅", sky:"Partly cloudy — clouds build in the afternoon",
+    rainIco:"🌧️", rain:"Frequent PM showers · wettest of the three (~16 rainy days)",
+    stormIco:"⛈️", storm:"Afternoon thunderstorms fairly common", stormLvl:"mod"},
+  bh:{loc:"Bayahibe",url:"https://www.accuweather.com/en/do/bayahibe/123411/august-weather/123411",
+    temp:"32° / 25°C · 89° / 77°F",
+    skyIco:"🌤️", sky:"Mostly sunny — sunniest, driest of the three",
+    rainIco:"🌦️", rain:"Brief passing showers · light monthly totals",
+    stormIco:"🌩️", storm:"Thunderstorms infrequent (~4 storm days/mo)", stormLvl:"low"},
+  pc:{loc:"Punta Cana",url:"https://www.accuweather.com/en/do/punta-cana/462477/august-weather/462477",
+    temp:"31° / 27°C · 88° / 80°F",
+    skyIco:"⛅", sky:"Partly sunny & humid — warmest nights",
+    rainIco:"🌦️", rain:"Short afternoon showers, then it clears",
+    stormIco:"⛈️", storm:"PM / evening thunderstorms possible", stormLvl:"mod"}
+};
+/* which location's weather applies to each day (the 3 requested spots) */
+const dayWeather={d1:"lt",d2:"lt",d3:"lt",d4:"bh",d5:"bh",d6:"bh",d7:"pc",d8:"pc",d9:"pc"};
+
 const NIGHTLY_DEFAULT=60;
 const LS_KEY="dr_itin_v3";
 
@@ -528,6 +570,22 @@ function renderAcc(d){
       <div id="acclink-${d.id}">${accLinkHTML(a)}</div>
     </div></div>`;
 }
+function renderWx(d){
+  const key=dayWeather[d.id];if(!key)return "";
+  const w=weather[key];
+  const stormClass="stormlvl-"+(w.stormLvl||"mod");
+  return `<div class="wxcard">
+    <div class="wxtop">🌤️ August weather · ${esc(w.loc)}
+      <a class="wxsrc" href="${w.url}" target="_blank" rel="noopener">AccuWeather →</a></div>
+    <div class="wxrow">
+      <span class="wxchip"><span class="wl">Temp</span> 🌡️ ${esc(w.temp)}</span>
+      <span class="wxchip"><span class="wl">Sky</span> ${w.skyIco} ${esc(w.sky)}</span>
+      <span class="wxchip"><span class="wl">Rain</span> ${w.rainIco} ${esc(w.rain)}</span>
+      <span class="wxchip ${stormClass}"><span class="wl">Storm</span> ${w.stormIco} ${esc(w.storm)}</span>
+    </div>
+    <div class="wxnote"><span>🌀</span><span>Typical-August pattern, not a live forecast — peak hurricane season, so re-check AccuWeather &amp; the NHC before you travel.</span></div>
+  </div>`;
+}
 function renderDay(d){
   const swapBadge=d.swap?`<span class="tag ahead" style="margin-left:6px">🔁 swappable</span>`:"";
   return `<div class="day">
@@ -535,6 +593,7 @@ function renderDay(d){
       <div class="daycost"><div class="dc" id="dc-${d.id}">$${dayCost(d)}</div><div class="dcl">day total</div></div></div>
     <div id="map-${d.id}" class="lmap"></div>
     <a class="maplink" href="${gmapsDir(d)}" target="_blank" rel="noopener">🗺️ Open this day's route in Google Maps →</a>
+    ${renderWx(d)}
     <div class="stops">${d.stops.map(renderStop).join("")}</div>
     ${renderAcc(d)}${renderChat(d)}</div>`;
 }
