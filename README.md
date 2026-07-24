@@ -5,6 +5,19 @@ An interactive, single-file trip planner — **`dr-itinerary.html`** — for an
 live-updating cost totals, booking & accommodation trackers, toggleable optional
 activities, and a trip to-do checklist.
 
+### Accommodation cards
+
+Each night has an accommodation card that stores its place name, nightly price,
+booking link, a **free-cancellation-until date** (empty by default = no free
+cancellation), and free-text **booking notes** (e.g. *"free cancellation until
+28/07"*). Every field — including the new cancellation date and notes — is part
+of the shared state and **syncs live via Firebase** (see below), so the whole
+group sees the same details.
+
+Cards are **collapsed by default** to keep day cards compact: the collapsed
+header shows only whether the stay is booked and its cancellation status (plus
+any booking note underneath). Tap the header to expand and edit.
+
 ## Shared, live sync
 
 Booking details, accommodation entries, optional-activity picks, and the to-do
