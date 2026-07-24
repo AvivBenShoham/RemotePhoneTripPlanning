@@ -121,8 +121,19 @@
   .toggle input:checked + .slider::before{transform:translateX(20px)}
   .switch .swlbl{font-size:.82rem;font-weight:600}
   .acc{margin:2px 14px 14px;border:1.5px dashed var(--turq);border-radius:12px;background:#f4fbfa;overflow:hidden}
-  .acchead{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:.8rem;font-weight:700;color:var(--turq-d);flex-wrap:wrap}
-  .accbody{padding:0 12px 12px}
+  .acchead{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:.8rem;font-weight:700;color:var(--turq-d);flex-wrap:wrap;cursor:pointer}
+  .acctitle{flex:0 1 auto}
+  .accsum{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.72rem}
+  .accstatus{padding:3px 10px;border-radius:20px;background:var(--ahead);color:#fff;font-weight:700}
+  .accstatus.on{background:var(--done)}
+  .acccancel{color:var(--muted);font-weight:600}
+  .acccancel.free{color:#227a52}
+  .accchev{transition:transform .2s;font-size:.7rem;opacity:.55}
+  .acc.open .accchev{transform:rotate(180deg)}
+  .accnote{margin:0 12px 8px;font-size:.74rem;color:#5a4b2a;background:#fffaf0;border:1px solid var(--gold);border-radius:8px;padding:6px 9px}
+  .accprice-line{font-size:.74rem;color:var(--muted);margin-top:8px;font-weight:600}
+  .accbody{padding:0 12px 12px;display:none}
+  .acc.open .accbody{display:block}
   .acc.booked{border-style:solid;background:#f0f9f4;border-color:var(--done)}
   .acc.booked .acchead{color:#227a52}
   .opt{margin:10px 0;border:1.5px dashed var(--gold);border-radius:14px;background:#fffdf5;overflow:hidden}
@@ -584,18 +595,35 @@ function renderOptional(key){
 }
 function accShowing(a){return (a.price!==''&&a.price!=null&&!isNaN(a.price))?('$'+Number(a.price)):('$'+NIGHTLY_DEFAULT+' (default)');}
 function accLinkHTML(a){return a.link?`<a class="maplink" style="border-radius:8px;margin-top:8px;border:1px solid var(--line)" href="${esc(a.link)}" target="_blank" rel="noopener">🔗 Open booking →</a>`:"";}
+/* format an <input type=date> value (yyyy-mm-dd) as dd/mm for the compact summary */
+function fmtCancelDate(v){if(!v)return "";const p=String(v).split('-');return p.length===3?(p[2]+'/'+p[1]):String(v);}
+function accCancelText(a){return a.cancelUntil?('🟢 Free cancellation until '+fmtCancelDate(a.cancelUntil)):'🔒 No free cancellation';}
+function accCancelClass(a){return a.cancelUntil?'acccancel free':'acccancel';}
+function accNoteHTML(a){return a.notes?`<div class="accnote">📝 ${esc(a.notes)}</div>`:"";}
 function renderAcc(d){
   if(!d.stay)return "";
-  const a=store.acc[d.id]||{booked:false,name:"",price:"",link:""};
+  const a=store.acc[d.id]||{booked:false,name:"",price:"",link:"",cancelUntil:"",notes:""};
   return `<div class="acc ${a.booked?'booked':''}" id="acc-${d.id}">
-    <div class="acchead">🏨 Accommodation — ${d.stay} · <span id="accprice-${d.id}" style="font-weight:600">${accShowing(a)}/night</span><span style="margin-left:auto"></span>
-      <span class="switch" style="margin-top:0"><label class="toggle"><input type="checkbox" ${a.booked?'checked':''} onchange="setAccBooked('${d.id}',this.checked)"><span class="slider"></span></label>
-      <span class="swlbl">${a.booked?'Booked':'Not booked'}</span></span></div>
+    <div class="acchead" onclick="toggleAcc('${d.id}')">
+      <span class="acctitle">🏨 Accommodation — ${d.stay}</span>
+      <span class="accsum">
+        <span class="accstatus ${a.booked?'on':''}">${a.booked?'✅ Booked':'🕓 Not booked'}</span>
+        <span class="${accCancelClass(a)}">${accCancelText(a)}</span>
+      </span>
+      <span class="accchev">▾</span></div>
+    <div id="accnote-${d.id}">${accNoteHTML(a)}</div>
     <div class="accbody">
+      <div class="switch" style="margin-top:8px"><label class="toggle"><input type="checkbox" ${a.booked?'checked':''} onchange="setAccBooked('${d.id}',this.checked)"><span class="slider"></span></label>
+        <span class="swlbl">${a.booked?'Booked':'Not booked'}</span></div>
+      <div class="accprice-line">Nightly rate: <span id="accprice-${d.id}">${accShowing(a)}</span></div>
       <div class="btrow">
         <label>Place name<input type="text" value="${esc(a.name||'')}" placeholder="Hotel / Airbnb name" oninput="setAccField('${d.id}','name',this.value)"></label>
         <label>Price · night (USD)<input type="number" inputmode="decimal" value="${a.price!==''&&a.price!=null?a.price:''}" placeholder="${NIGHTLY_DEFAULT}" oninput="setAccField('${d.id}','price',this.value)"></label>
       </div>
+      <div class="btrow">
+        <label>Free cancellation until<input type="date" value="${esc(a.cancelUntil||'')}" oninput="setAccField('${d.id}','cancelUntil',this.value)"></label>
+      </div>
+      <div class="btrow"><label>Booking notes<input type="text" value="${esc(a.notes||'')}" placeholder="e.g. free cancellation until 28/07" oninput="setAccField('${d.id}','notes',this.value)"></label></div>
       <div class="btrow"><label>Booking link<input type="url" value="${esc(a.link||'')}" placeholder="https://…" oninput="setAccField('${d.id}','link',this.value)"></label></div>
       <div id="acclink-${d.id}">${accLinkHTML(a)}</div>
     </div></div>`;
@@ -658,14 +686,18 @@ function toggleBT(k){document.getElementById('bt-'+k).classList.toggle('open');}
 function setBooked(k,v){store.book[k]=store.book[k]||{};store.book[k].done=v;save();refreshBT(k);}
 function setBookField(k,f,v){store.book[k]=store.book[k]||{};store.book[k][f]=v;save();if(f==='price')recalc();}
 function refreshBT(k){const el=document.getElementById('bt-'+k);const open=el.classList.contains('open');let found;days.forEach(d=>d.stops.forEach(s=>{if(s.book&&s.book.key===k)found=s.book;}));el.outerHTML=renderBookTrack(found);const ne=document.getElementById('bt-'+k);if(open)ne.classList.add('open');}
+function toggleAcc(id){const el=document.getElementById('acc-'+id);if(el)el.classList.toggle('open');}
 function setAccBooked(id,v){store.acc[id]=store.acc[id]||{};store.acc[id].booked=v;save();refreshAcc(id);recalc();}
 function setAccField(id,f,v){
-  const a=store.acc[id]=store.acc[id]||{};a[f]=v;save();recalc();
+  const a=store.acc[id]=store.acc[id]||{};a[f]=v;save();
   /* update derived UI in place so the focused input is never remounted (keeps the mobile keyboard open) */
-  if(f==='price'){const el=document.getElementById('accprice-'+id);if(el)el.textContent=accShowing(a)+'/night';}
+  if(f==='price'){recalc();const el=document.getElementById('accprice-'+id);if(el)el.textContent=accShowing(a);}
   else if(f==='link'){const el=document.getElementById('acclink-'+id);if(el)el.innerHTML=accLinkHTML(a);}
+  else if(f==='cancelUntil'){const acc=document.getElementById('acc-'+id);if(acc){const el=acc.querySelector('.acccancel');if(el){el.textContent=accCancelText(a);el.className=accCancelClass(a);}}}
+  else if(f==='notes'){const el=document.getElementById('accnote-'+id);if(el)el.innerHTML=accNoteHTML(a);}
 }
-function refreshAcc(id){const d=days.find(x=>x.id===id);const el=document.getElementById('acc-'+id);if(el)el.outerHTML=renderAcc(d);}
+/* re-render but keep the expand/collapse state (mirrors refreshBT) */
+function refreshAcc(id){const d=days.find(x=>x.id===id);const el=document.getElementById('acc-'+id);if(!el)return;const open=el.classList.contains('open');el.outerHTML=renderAcc(d);const ne=document.getElementById('acc-'+id);if(open&&ne)ne.classList.add('open');}
 function resetAll(){if(!confirm("Clear all shared booking, accommodation & to-do entries and reset optionals to the recommended picks?"))return;store=JSON.parse(JSON.stringify(defaultStore));save();build();}
 function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();paintAllChats();try{if(typeof updateAlerts==='function')updateAlerts();}catch(e){}if(currentTab==='overview')renderOverview();}
 
