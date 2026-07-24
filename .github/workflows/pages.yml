@@ -1,6 +1,6 @@
 name: Deploy to GitHub Pages
 
-# Publishes the repository (the trip planner) to GitHub Pages.
+# Builds the React (Vite) trip planner and publishes it to GitHub Pages.
 # Runs on every push to main, and can be triggered manually.
 on:
   push:
@@ -19,14 +19,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
 
       - name: Configure Pages
         # enablement: true turns on Pages for the repo if it isn't already,
@@ -38,9 +47,17 @@ jobs:
       - name: Upload site artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Publish the whole repo root; dr-itinerary.html and index.html live here.
-          path: .
+          # Publish Vite's build output. The base path in vite.config.js keeps
+          # asset URLs valid under /RemotePhoneTripPlanning/.
+          path: dist
 
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

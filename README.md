@@ -1,9 +1,23 @@
 # RemotePhoneTripPlanning
 
-An interactive, single-file trip planner — **`dr-itinerary.html`** — for an
-11-day Dominican Republic loop for two (Aug 11–21, 2026). Per-day Leaflet maps,
-live-updating cost totals, booking & accommodation trackers, toggleable optional
-activities, and a trip to-do checklist.
+An interactive **React (Vite)** trip planner for an 11-day Dominican Republic
+loop for two (Aug 11–21, 2026). Per-day Leaflet maps, live-updating cost totals,
+booking & accommodation trackers, toggleable optional activities, and a trip
+to-do checklist. It builds to static files and deploys to GitHub Pages.
+
+## Local development
+
+```bash
+npm install      # install dependencies
+npm run dev      # start the dev server (prints a local URL)
+npm run build    # production build into dist/
+npm run preview  # serve the production build locally
+```
+
+The app lives in `src/` (data in `src/data/`, Firebase config in
+`src/firebase/`, UI in `src/components/`, shared state/chat hooks in
+`src/hooks/`). Unlike the old single HTML file, it now requires the dev server
+or a build — you can no longer just double-click a file to open it.
 
 ### Accommodation cards
 
@@ -52,17 +66,18 @@ current device only (`localStorage`), exactly as before.
    ```
    With these rules, having the database URL is not enough — every read and write
    must come from an account you created (see **Sign-in** below).
-4. **Paste the Web API Key** into `dr-itinerary.html` — Firebase console →
+4. **Paste the Web API Key** into `src/firebase/config.js` — Firebase console →
    *Project settings* (gear) → *General* → **Web API Key**. Set it as `apiKey`
-   in the `FIREBASE_CONFIG` block near the top of the `<script>`. This key is
+   in the `FIREBASE_CONFIG` block. This key is
    **public by design** (it only names the project; it grants no access on its
    own — the rules do), so it's fine to commit. The `authDomain`, `projectId`,
    and `databaseURL` are already filled in for this project.
 5. That's it — do the **Sign-in** setup below and the page syncs live for anyone
    with a valid account.
 
-> Want a separate, independent copy of the planner? Change `TRIP_ID` in the file
-> (e.g. `"dr2026"` → `"europe2027"`). Each id is its own isolated dataset.
+> Want a separate, independent copy of the planner? Change `TRIP_ID` in
+> `src/firebase/config.js` (e.g. `"dr2026"` → `"europe2027"`). Each id is its own
+> isolated dataset.
 
 ## Sign-in (real Firebase Authentication)
 
@@ -73,7 +88,7 @@ source.
 
 **How a typed "name" becomes an account:** the login form lowercases the name and
 maps it to a Firebase email `name@tripvisualize.app` (the `EMAIL_DOMAIN` constant
-in the file). Both name and password are lowercased before sign-in, so
+in `src/firebase/config.js`). Both name and password are lowercased before sign-in, so
 capitalization never matters.
 
 ### Create the accounts (one-time)
@@ -143,16 +158,21 @@ So everyone opens the same URL instead of passing files around, the repo ships
 a GitHub Actions workflow — [`.github/workflows/pages.yml`](.github/workflows/pages.yml)
 — that publishes to GitHub Pages automatically:
 
-1. Every push to **`main`** builds and deploys the site (the workflow enables
-   Pages for the repo on its first run, so no manual *Settings → Pages* step is
-   needed). You can also run it on demand from the **Actions** tab
-   (*Deploy to GitHub Pages → Run workflow*).
+1. Every push to **`main`** runs `npm ci && npm run build` and deploys Vite's
+   `dist/` output (the workflow enables Pages for the repo on its first run, so no
+   manual *Settings → Pages* step is needed). You can also run it on demand from
+   the **Actions** tab (*Deploy to GitHub Pages → Run workflow*).
 2. Once the first run finishes, the planner is served at
-   `https://<user>.github.io/RemotePhoneTripPlanning/` (a root `index.html`
-   redirects to `dr-itinerary.html`, which also stays reachable directly).
+   `https://<user>.github.io/RemotePhoneTripPlanning/`. The old
+   `dr-itinerary.html` URL still works — it now redirects to the app root.
 
-> Prefer the classic *Deploy from a branch* setup instead? Delete the workflow
-> and set **Settings → Pages → Deploy from a branch** to `main` / `/ (root)`.
+> The site is served under the `/RemotePhoneTripPlanning/` sub-path, which the
+> `base` option in [`vite.config.js`](vite.config.js) matches so asset URLs
+> resolve. Deploying to a custom domain or repo root? Build with
+> `BASE_PATH=/ npm run build`.
+
+> Because the app is now built (not a static file), *Deploy from a branch* would
+> serve raw source instead of the build — keep the Actions workflow.
 
 ## Notes & trade-offs
 
