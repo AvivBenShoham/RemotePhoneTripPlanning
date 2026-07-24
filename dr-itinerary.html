@@ -56,12 +56,20 @@
   .ovplace .ph{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
   .ovplace .pn{font-size:1rem;font-weight:700;color:var(--ink)}
   .ovplace .pd{font-size:.76rem;color:var(--muted);font-weight:600;white-space:nowrap}
-  .ovchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-  .ovchip{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;padding:4px 9px;border-radius:9px;background:var(--sky);color:var(--turq-d);font-weight:600}
+  .ovlist{list-style:none;margin:8px 0 0;padding:0}
+  .ovlist li{display:flex;align-items:flex-start;gap:7px;font-size:.85rem;color:var(--ink);padding:2px 0;line-height:1.4}
+  .ovlist li .em{flex:0 0 auto}
   .ovtrans{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.85rem;padding:7px 0;border-bottom:1px dashed var(--line)}
   .ovtrans:last-child{border-bottom:0}
   .ovtrans .tt{color:var(--ink)}
   .ovtrans .tm{color:var(--muted);font-weight:700;white-space:nowrap}
+  .ovpart{margin-top:10px}
+  .ovpart .ph{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+  .ovpart .ph .pl{font-size:.86rem;font-weight:700;color:var(--turq-d)}
+  .ovpart .ph .pm{font-size:.82rem;font-weight:700;color:var(--ink);white-space:nowrap}
+  .ovsub{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.8rem;padding:3px 0 3px 14px}
+  .ovsub .tt{color:var(--muted)}
+  .ovsub .tm{color:var(--muted);white-space:nowrap}
   .ovnote{font-size:.76rem;color:var(--muted);font-style:italic;margin-top:10px}
   .legend{background:#fff;border-radius:16px;box-shadow:var(--shadow-l);padding:14px;margin:16px 0}
   .legend h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px}
@@ -701,6 +709,7 @@ function dayAttractions(d){
   });
   return list;
 }
+function shortAttr(label){return label.split(/ · | \+ | — /)[0].trim().replace(/\s+(stop|first)$/i,'');}
 function renderOverview(){
   const el=document.getElementById('overviewbody'); if(!el)return;
   const total=days.reduce((s,d)=>s+dayCost(d),0);
@@ -725,14 +734,21 @@ function renderOverview(){
     const dayNums=g.days.map(d=>d.n.replace('Day ','')).filter((v,i,a)=>a.indexOf(v)===i);
     const range=dayNums.length>1?`Days ${dayNums[0]}–${dayNums[dayNums.length-1]}`:`Day ${dayNums[0]}`;
     const attrs=[]; g.days.forEach(d=>dayAttractions(d).forEach(a=>attrs.push(a)));
-    const chips=attrs.map(a=>`<span class="ovchip">${a.emoji} ${esc(a.label)}</span>`).join('');
+    const items=attrs.map(a=>`<li><span class="em">${a.emoji}</span>${esc(shortAttr(a.label))}</li>`).join('');
     return `<div class="ovplace">
       <div class="ph"><span class="pn">${esc(g.stay)}</span><span class="pd">${n} night${n>1?'s':''} · ${range}</span></div>
-      ${chips?`<div class="ovchips">${chips}</div>`:''}</div>`;
+      ${items?`<ul class="ovlist">${items}</ul>`:''}</div>`;
   }).join('');
-  const transfers=[];
-  days.forEach(d=>d.stops.forEach(s=>{if(s.mins){transfers.push({label:s.leg||s.title,mins:s.mins});}}));
-  const transRows=transfers.map(t=>`<div class="ovtrans"><span class="tt">${esc(t.label)}</span><span class="tm">~${fmtMins(t.mins)}</span></div>`).join('');
+  const parts=[];
+  days.forEach(d=>{
+    const legs=d.stops.filter(s=>s.mins).map(s=>({label:s.leg||s.title,mins:Number(s.mins)||0}));
+    if(!legs.length)return;
+    parts.push({label:d.n+' · '+d.title,sub:legs.reduce((a,l)=>a+l.mins,0),legs});
+  });
+  const transRows=parts.map(p=>`<div class="ovpart">
+      <div class="ph"><span class="pl">${esc(p.label)}</span><span class="pm">~${fmtMins(p.sub)}</span></div>
+      ${p.legs.map(l=>`<div class="ovsub"><span class="tt">${esc(l.label)}</span><span class="tm">~${fmtMins(l.mins)}</span></div>`).join('')}
+    </div>`).join('');
   el.innerHTML=stats
     +`<div class="ovcard"><h3>🏨 Where you sleep</h3>${placeCards}</div>`
     +`<div class="ovcard"><h3>🚌 Getting around</h3><div class="ovtrans" style="border-bottom:2px solid var(--line)"><span class="tt"><b>Total ground transit</b></span><span class="tm">~${fmtMins(tmins)} · $${transCost}</span></div>${transRows}<div class="ovnote">Estimated door-to-door times for the ground transfers; excursion boat rides aren't counted. Cost is the total transport fare for the couple.</div></div>`;
