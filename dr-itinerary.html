@@ -36,6 +36,33 @@
   .livewrap .lbl{font-size:.78rem;text-transform:uppercase;letter-spacing:.5px;opacity:.9}
   .livewrap .amt{font-size:1.6rem;font-weight:700}
   .livewrap .amt small{font-size:.8rem;font-weight:500;opacity:.85}
+  /* top navbar + tabs */
+  .topnav{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);box-shadow:var(--shadow-l)}
+  .topnavwrap{display:flex;gap:8px;padding:8px 14px}
+  .navbtn{flex:1;border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:12px;padding:10px 8px;font-size:.92rem;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:.15s}
+  .navbtn.active{background:var(--turq);color:#fff;border-color:var(--turq);box-shadow:var(--shadow-l)}
+  .tabpane{display:none}
+  .tabpane.active{display:block}
+  /* overview */
+  .ovstats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin:16px 0}
+  .ovstat{background:#fff;border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-l);padding:14px 12px;text-align:center}
+  .ovstat .n{font-size:1.4rem;font-weight:700;color:var(--turq-d);line-height:1.1}
+  .ovstat .l{font-size:.7rem;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin-top:5px}
+  .ovcard{background:#fff;border-radius:16px;box-shadow:var(--shadow-l);padding:14px;margin:14px 0}
+  .ovcard h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:12px}
+  .ovplace{padding:11px 0;border-bottom:1px solid var(--line)}
+  .ovplace:first-of-type{padding-top:0}
+  .ovplace:last-child{border-bottom:0;padding-bottom:0}
+  .ovplace .ph{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  .ovplace .pn{font-size:1rem;font-weight:700;color:var(--ink)}
+  .ovplace .pd{font-size:.76rem;color:var(--muted);font-weight:600;white-space:nowrap}
+  .ovchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .ovchip{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;padding:4px 9px;border-radius:9px;background:var(--sky);color:var(--turq-d);font-weight:600}
+  .ovtrans{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.85rem;padding:7px 0;border-bottom:1px dashed var(--line)}
+  .ovtrans:last-child{border-bottom:0}
+  .ovtrans .tt{color:var(--ink)}
+  .ovtrans .tm{color:var(--muted);font-weight:700;white-space:nowrap}
+  .ovnote{font-size:.76rem;color:var(--muted);font-style:italic;margin-top:10px}
   .legend{background:#fff;border-radius:16px;box-shadow:var(--shadow-l);padding:14px;margin:16px 0}
   .legend h3{font-size:.8rem;text-transform:uppercase;letter-spacing:.6px;color:var(--muted);margin-bottom:10px}
   .legrow{display:flex;flex-wrap:wrap;gap:8px 14px}
@@ -247,7 +274,15 @@
       <div class="amt">$<span id="grandtotal">0</span> <small>USD</small></div></div>
   </div>
 </header>
+<nav class="topnav">
+  <div class="wrap topnavwrap">
+    <button id="nav-overview" class="navbtn active" onclick="showTab('overview')">🗺️ Overview</button>
+    <button id="nav-itinerary" class="navbtn" onclick="showTab('itinerary')">📅 Itinerary</button>
+  </div>
+</nav>
 <div class="wrap">
+  <section id="tab-overview" class="tabpane active"><div id="overviewbody"></div></section>
+  <section id="tab-itinerary" class="tabpane">
   <div class="savenote"><span>🔗</span><div>Booking details, accommodation & to-dos <b>sync live for everyone</b> — edit on any phone or laptop and the change shows up for the whole group within a second. (Live sync and the maps need the hosted page online; inside the chat preview it falls back to saving on this device only.)</div></div>
   <div class="warnbanner"><span>⚠️</span><div>Prices are USD for the couple. Only <b>Scape Park ($120pp)</b> and taxi rates are your confirmed quotes; the rest are estimates (⚠ = unverified). Toggle optionals, mark things booked, add accommodation — every total updates live.</div></div>
   <div class="legend"><h3>Legend</h3>
@@ -269,6 +304,7 @@
     <div id="todolist"></div>
   </div>
   <div class="foot">Maps © OpenStreetMap contributors · markers are exact; the line connects stops in order (straight-line). Tap “open in Google Maps” for live road navigation.<br>Tap <b>Important Notes</b> for the reasoning behind the route.</div>
+  </section>
 </div>
 <div class="toastwrap" id="toastwrap"></div>
 <button class="alertsbtn" id="alertsbtn" onclick="toggleAlerts()">🔔<span class="alertsbadge" id="alertsbadge"></span></button>
@@ -307,19 +343,19 @@ const days=[
    pts:[[18.4297,-69.6690,"SDQ Airport"],[18.4585,-69.9540,"Asotrapusa Stn (SD)"],[19.3087,-69.5443,"Las Terrenas"]],
    stops:[
      {t:"06:46",title:"Land at SDQ",desc:"Immigration + bags. Change money / ATM for pesos before leaving.",act:"🛬"},
-     {leg:"Taxi airport → Asotrapusa station (in Santo Domingo)",op:"Street taxi",cost:55,mode:"🚕"},
-     {t:"09:30",title:"Bus to Las Terrenas",desc:"~3 hrs. Buy at counter, cash. Miss it → 11:00 backup.",act:"🚌",cost:18,spot:true,op:"Asotrapusa"},
+     {leg:"Taxi airport → Asotrapusa station (in Santo Domingo)",op:"Street taxi",cost:55,mode:"🚕",mins:40},
+     {t:"09:30",title:"Bus to Las Terrenas",desc:"~3 hrs. Buy at counter, cash. Miss it → 11:00 backup.",act:"🚌",cost:18,spot:true,op:"Asotrapusa",mins:180},
      {t:"12:30",title:"Check in & nap",desc:"Recover from the red-eye before the beach.",act:"🛏️",cost:10},
      {t:"16:00",title:"Playa Punta Popy",desc:"Relaxed public beach right in town, walkable from the center — a good spot to unwind after the flight.",act:"🏖️",cost:0,free:true},
      {t:"19:30",title:"Dinner · Pueblo de los Pescadores",desc:"Restaurant and bar strip on the seafront.",act:"🍹",cost:36}]},
   {id:"d2",n:"Day 2",date:"Fri · Aug 14",title:"El Limón + optional beach hop",stay:"Las Terrenas",
    pts:[[19.3087,-69.5443,"Las Terrenas"],[19.2833,-69.4167,"El Limón"],[19.2670,-69.4520,"Playa Morón"]],
    stops:[
-     {leg:"Guagua from Calle Duarte (by the cemetery)",op:"Local guagua",cost:2,mode:"🚐"},
+     {leg:"Guagua from Calle Duarte (by the cemetery)",op:"Local guagua",cost:2,mode:"🚐",mins:40},
      {t:"08:00",title:"El Limón Waterfall",desc:"A ~40–50m waterfall that drops in a single white ribbon into a deep, cold, jade-green pool you can swim in. The trail winds through rainforest past cocoa and coffee farms — muddy in the May–Nov wet season. Reach it on foot (40–60 min) or by horse from a parada; going early means it's cooler and quieter before the midday groups.",act:"💦",cost:24,spot:true},
      {t:"11:30",title:"Lunch at the parada",desc:"Meal often included with the guide/horse fee.",act:"🍽️",cost:16},
      {optional:"beachhop"},
-     {leg:"Guagua back to Las Terrenas",op:"Local guagua",cost:5,mode:"🚐"},
+     {leg:"Guagua back to Las Terrenas",op:"Local guagua",cost:5,mode:"🚐",mins:40},
      {t:"19:30",title:"Dinner in town",desc:"Your pick along the main strip.",act:"🍽️",cost:18}]},
   {id:"d3",n:"Day 3",date:"Sat · Aug 15",title:"Slow beach day — your choice",stay:"Las Terrenas",
    pts:[[19.3087,-69.5443,"Las Terrenas"],[19.3280,-69.5760,"Playa Bonita"],[19.3060,-69.6360,"Playa Cosón"]],
@@ -330,10 +366,10 @@ const days=[
   {id:"d4",n:"Day 4",date:"Sun · Aug 16",title:"Las Terrenas → Bayahibe",stay:"Bayahibe",
    pts:[[19.3087,-69.5443,"Las Terrenas"],[18.4585,-69.9540,"Santo Domingo"],[18.4273,-68.9728,"La Romana"],[18.3607,-68.8419,"Bayahibe"]],
    stops:[
-     {leg:"Express bus → Santo Domingo (~3 hrs). Take the 08:30.",op:"Asotrapusa",cost:18,mode:"🚌"},
-     {leg:"Taxi across SD to eastern bus zone (Parque Enriquillo)",op:"Street taxi",cost:10,mode:"🚕"},
-     {leg:"Bus toward La Romana",op:"Expreso / guagua",cost:12,mode:"🚌"},
-     {leg:"Guagua La Romana → Bayahibe (last ones thin out early evening)",op:"Local guagua",cost:4,mode:"🚐"},
+     {leg:"Express bus → Santo Domingo (~3 hrs). Take the 08:30.",op:"Asotrapusa",cost:18,mode:"🚌",mins:180},
+     {leg:"Taxi across SD to eastern bus zone (Parque Enriquillo)",op:"Street taxi",cost:10,mode:"🚕",mins:30},
+     {leg:"Bus toward La Romana",op:"Expreso / guagua",cost:12,mode:"🚌",mins:90},
+     {leg:"Guagua La Romana → Bayahibe (last ones thin out early evening)",op:"Local guagua",cost:4,mode:"🚐",mins:30},
      {t:"15:30",title:"Arrive Bayahibe",desc:"Fishing village on the south coast; the base for the dive and Saona trips.",act:"⚓",cost:0,free:true},
      {t:"16:30",title:"Confirm tomorrow's dive in person",desc:"Settle certification status and payment at the shop.",act:"🤿",cost:0},
      {t:"18:45",title:"Sunset on the waterfront + dinner",desc:"The waterfront faces roughly west. Dinner in the village.",act:"🌅",cost:18}]},
@@ -360,17 +396,17 @@ const days=[
   {id:"d7",n:"Day 7",date:"Wed · Aug 19",title:"Bayahibe → Punta Cana + night",stay:"Punta Cana / Bávaro",
    pts:[[18.3607,-68.8419,"Bayahibe"],[18.4273,-68.9728,"La Romana"],[18.6800,-68.4500,"Bávaro"],[18.7360,-68.4290,"Playa Macao"]],
    stops:[
-     {leg:"Guagua Bayahibe → La Romana",op:"Local guagua",cost:4,mode:"🚐"},
-     {leg:"Bus La Romana → Punta Cana (~1 hr)",op:"Expreso / Sichoprola",cost:8,mode:"🚌"},
+     {leg:"Guagua Bayahibe → La Romana",op:"Local guagua",cost:4,mode:"🚐",mins:30},
+     {leg:"Bus La Romana → Punta Cana (~1 hr)",op:"Expreso / Sichoprola",cost:8,mode:"🚌",mins:60},
      {t:"11:30",title:"Arrive, drop bags, lunch",desc:"Settle into the Bávaro area.",act:"🍽️",cost:10},
-     {leg:"Taxi/guagua to Playa Macao",op:"Local taxi",cost:28,mode:"🚕"},
+     {leg:"Taxi/guagua to Playa Macao",op:"Local taxi",cost:28,mode:"🚕",mins:30},
      {t:"13:30",title:"Playa Macao",desc:"A wide, natural public beach not walled off by resorts — sand, open water and a rugged feel. It has real waves and an undertow, so swim with care; surf lessons are available.",act:"🏄",cost:0,free:true},
      {t:"19:30",title:"Dinner · El Cortecito strip",desc:"Local, walkable, cheap.",act:"🍽️",cost:20},
      {optional:"night"}]},
   {id:"d8",n:"Day 8",date:"Thu · Aug 20",title:"Scape Park · Cap Cana",stay:"Punta Cana / Bávaro",
    pts:[[18.6800,-68.4500,"Bávaro"],[18.5030,-68.3810,"Scape Park"]],
    stops:[
-     {leg:"Park transfer or taxi to Cap Cana (⚠ ask if transfer's bundled)",op:"Scape Park / taxi",cost:55,mode:"🚕"},
+     {leg:"Park transfer or taxi to Cap Cana (⚠ ask if transfer's bundled)",op:"Scape Park / taxi",cost:55,mode:"🚕",mins:40},
      {t:"08:30",title:"Ziplines first",desc:"A set of cliff- and canopy-strung ziplines — one line runs along the cliff face with an ocean view. Cooler and quieter early.",act:"🧗",cost:0},
      {t:"11:00",title:"Iguabonita cave",desc:"A short guided walk into a lit limestone cave.",act:"🕳️",cost:0},
      {t:"13:30",title:"Hoyo Azul cenote swim",desc:"The park's centerpiece: a deep, vivid-turquoise cenote at the foot of a tall limestone cliff, reached by a ~15-min walk through tropical forest on a path with stairs. Life jackets are provided. Swimsuit under your clothes and closed shoes recommended.",act:"💙",cost:240,
@@ -379,8 +415,8 @@ const days=[
   {id:"d10",n:"Day 9",date:"Fri · Aug 21",title:"→ Santo Domingo (buffer)",stay:"Santo Domingo",
    pts:[[18.6800,-68.4500,"Bávaro (Friusa)"],[18.4585,-69.9540,"Santo Domingo"],[18.4820,-69.8590,"Los Tres Ojos"],[18.4732,-69.8829,"Zona Colonial"]],
    stops:[
-     {leg:"Taxi to Bávaro bus station (Friusa)",op:"Street taxi",cost:30,mode:"🚕"},
-     {t:"07:00",title:"Expreso Bávaro → Santo Domingo",desc:"~3–3.5 hrs. Cash, day-of, arrive ~45 min early. Backup 09:00.",act:"🚌",cost:14,spot:true,op:"Expreso Bávaro"},
+     {leg:"Taxi to Bávaro bus station (Friusa)",op:"Street taxi",cost:30,mode:"🚕",mins:20},
+     {t:"07:00",title:"Expreso Bávaro → Santo Domingo",desc:"~3–3.5 hrs. Cash, day-of, arrive ~45 min early. Backup 09:00.",act:"🚌",cost:14,spot:true,op:"Expreso Bávaro",mins:195},
      {t:"11:30",title:"Complete your EXIT E-Ticket",desc:"eticket.migracion.gob.do — official site only. Today, not at the airport.",act:"🎫",cost:0},
      {t:"12:30",title:"Los Tres Ojos",desc:"Open-air limestone caverns with lagoons, in Mirador del Este park. Low entry fee.",act:"🕳️",cost:3,spot:true},
      {t:"15:00",title:"Zona Colonial",desc:"The cobblestone historic core and a UNESCO site — the oldest continuously inhabited European settlement in the Americas. Walk Calle Las Damas (the first paved street in the Americas), the Alcázar de Colón (Diego Columbus's palace, now a museum), and Fortaleza Ozama. Lively with cafés, bars and music into the evening. Some sites charge a small entry fee.",act:"🏛️",cost:8,spot:true},
@@ -388,7 +424,7 @@ const days=[
   {id:"d11",n:"Day 10",date:"Sat · Aug 22",title:"Fly home ❤️",stay:null,
    pts:[[18.4732,-69.8829,"Zona Colonial"],[18.4297,-69.6690,"SDQ Airport"]],
    stops:[
-     {leg:"Taxi to SDQ (~25–40 min)",op:"Street taxi",cost:50,mode:"🚕"},
+     {leg:"Taxi to SDQ (~25–40 min)",op:"Street taxi",cost:50,mode:"🚕",mins:35},
      {t:"08:00",title:"Check in · AM 655",desc:"Exit E-Ticket QR ready.",act:"✈️",cost:0},
      {t:"11:01",title:"Depart SDQ → MEX",desc:"Lands Mexico City T2 13:45. ¡Con el corazón lleno!",act:"🛫",cost:0}]},
 ];
@@ -631,7 +667,76 @@ function setAccField(id,f,v){
 }
 function refreshAcc(id){const d=days.find(x=>x.id===id);const el=document.getElementById('acc-'+id);if(el)el.outerHTML=renderAcc(d);}
 function resetAll(){if(!confirm("Clear all shared booking, accommodation & to-do entries and reset optionals to the recommended picks?"))return;store=JSON.parse(JSON.stringify(defaultStore));save();build();}
-function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();paintAllChats();try{if(typeof updateAlerts==='function')updateAlerts();}catch(e){}}
+function build(){destroyMaps();document.getElementById('days').innerHTML=days.map(renderDay).join("");renderTodo();recalc();initMaps();paintAllChats();try{if(typeof updateAlerts==='function')updateAlerts();}catch(e){}if(currentTab==='overview')renderOverview();}
+
+/* ---- Top navbar / tabs ---- */
+let currentTab='overview';
+function showTab(t){
+  currentTab=t;
+  document.getElementById('tab-overview').classList.toggle('active',t==='overview');
+  document.getElementById('tab-itinerary').classList.toggle('active',t==='itinerary');
+  document.getElementById('nav-overview').classList.toggle('active',t==='overview');
+  document.getElementById('nav-itinerary').classList.toggle('active',t==='itinerary');
+  if(t==='overview')renderOverview();
+  window.scrollTo(0,0);
+}
+
+/* ---- Overview (minimized trip-at-a-glance) ---- */
+function transitMins(){let m=0;days.forEach(d=>d.stops.forEach(s=>{if(s.mins)m+=Number(s.mins)||0;}));return m;}
+function fmtMins(m){const h=Math.floor(m/60),mm=m%60;return (h?h+'h':'')+(h&&mm?' ':'')+(mm||!h?mm+'m':'');}
+/* act emojis that are NOT attractions (meals, transport, logistics) */
+const NON_ATTRACTION=new Set(['🍽️','🍹','🥂','🛬','🚌','✈️','🛫','🚕','🚐','🛏️','🧳','🏧','🎫','⚓','🤿','😎','📸']);
+function dayAttractions(d){
+  const list=[];
+  d.stops.forEach(s=>{
+    if(s.optional!==undefined){
+      const o=optionals[s.optional]; if(!o)return;
+      const chosenKey=store.opt[s.optional]||o.def;
+      if(chosenKey==='skip')return;                 // beach hop skipped → not an attraction
+      list.push({emoji:'🔀',label:o.choices[chosenKey].name});
+    }
+    else if(s.t!==undefined&&s.title&&!NON_ATTRACTION.has(s.act)){
+      list.push({emoji:s.act||'📍',label:s.title});
+    }
+  });
+  return list;
+}
+function renderOverview(){
+  const el=document.getElementById('overviewbody'); if(!el)return;
+  const total=days.reduce((s,d)=>s+dayCost(d),0);
+  const nights=days.filter(d=>d.stay).length;
+  const tmins=transitMins();
+  const transCost=days.reduce((s,d)=>s+d.stops.reduce((a,x)=>a+(x.leg!==undefined&&x.cost?x.cost:0),0),0);
+  // group consecutive days by stay (skip fly-home null day)
+  const groups=[]; let cur=null;
+  days.forEach((d,i)=>{
+    if(!d.stay)return;
+    if(cur&&cur.stay===d.stay){cur.days.push(d);}
+    else{cur={stay:d.stay,days:[d],startN:d.n};groups.push(cur);}
+  });
+  const stats=`<div class="ovstats">
+    <div class="ovstat"><div class="n">$${total.toLocaleString()}</div><div class="l">Total cost (USD)</div></div>
+    <div class="ovstat"><div class="n">~${fmtMins(tmins)}</div><div class="l">In transit</div></div>
+    <div class="ovstat"><div class="n">${days.length}</div><div class="l">Days</div></div>
+    <div class="ovstat"><div class="n">${nights}</div><div class="l">Nights</div></div>
+  </div>`;
+  const placeCards=groups.map(g=>{
+    const n=g.days.length;
+    const dayNums=g.days.map(d=>d.n.replace('Day ','')).filter((v,i,a)=>a.indexOf(v)===i);
+    const range=dayNums.length>1?`Days ${dayNums[0]}–${dayNums[dayNums.length-1]}`:`Day ${dayNums[0]}`;
+    const attrs=[]; g.days.forEach(d=>dayAttractions(d).forEach(a=>attrs.push(a)));
+    const chips=attrs.map(a=>`<span class="ovchip">${a.emoji} ${esc(a.label)}</span>`).join('');
+    return `<div class="ovplace">
+      <div class="ph"><span class="pn">${esc(g.stay)}</span><span class="pd">${n} night${n>1?'s':''} · ${range}</span></div>
+      ${chips?`<div class="ovchips">${chips}</div>`:''}</div>`;
+  }).join('');
+  const transfers=[];
+  days.forEach(d=>d.stops.forEach(s=>{if(s.mins){transfers.push({label:s.leg||s.title,mins:s.mins});}}));
+  const transRows=transfers.map(t=>`<div class="ovtrans"><span class="tt">${esc(t.label)}</span><span class="tm">~${fmtMins(t.mins)}</span></div>`).join('');
+  el.innerHTML=stats
+    +`<div class="ovcard"><h3>🏨 Where you sleep</h3>${placeCards}</div>`
+    +`<div class="ovcard"><h3>🚌 Getting around</h3><div class="ovtrans" style="border-bottom:2px solid var(--line)"><span class="tt"><b>Total ground transit</b></span><span class="tm">~${fmtMins(tmins)} · $${transCost}</span></div>${transRows}<div class="ovnote">Estimated door-to-door times for the ground transfers; excursion boat rides aren't counted. Cost is the total transport fare for the couple.</div></div>`;
+}
 
 /* ---- To-Do checklist (shared & live: items live in store.todo, synced via Firebase) ----
    store.todo is a map  id -> {label, done, ts}. ts gives a stable order.
