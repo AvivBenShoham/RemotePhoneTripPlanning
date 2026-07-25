@@ -6,6 +6,7 @@ import { dbRef, remoteReady } from '../firebase/client';
 import { LS_KEY } from '../firebase/config';
 import { DEFAULT_TODO } from '../data/optionals';
 import { stableStr } from '../lib/format';
+import { useLang } from './useLang';
 
 const defaultStore = { opt:{beachhop:"moron",slowbeach:"coson",night:"strip"}, book:{}, acc:{}, todo:{} };
 const clone = (o) => JSON.parse(JSON.stringify(o));
@@ -20,6 +21,7 @@ const StoreCtx = createContext(null);
 export const useStore = () => useContext(StoreCtx);
 
 export function StoreProvider({ children }) {
+  const { t } = useLang();
   const [store, setStore] = useState(initialStore);
   const storeRef = useRef(store);
   useEffect(() => { storeRef.current = store; }, [store]);
@@ -107,13 +109,13 @@ export function StoreProvider({ children }) {
   }, [store.todo, update, applyIncoming]);
 
   const resetAll = useCallback(() => {
-    if (!confirm('Clear all shared booking, accommodation & to-do entries and reset optionals to the recommended picks?')) return;
+    if (!confirm(t('reset_confirm'))) return;
     const next = clone(defaultStore);
     storeRef.current = next;
     setStore(next);
     persistLocal(next);
     scheduleRemote();
-  }, []);
+  }, [t]);
 
   return <StoreCtx.Provider value={{ store, update, resetAll }}>{children}</StoreCtx.Provider>;
 }

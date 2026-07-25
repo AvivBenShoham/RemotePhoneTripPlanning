@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useStore } from '../hooks/useStore';
+import { useLang } from '../hooks/useLang';
 
 export default function BookTrack({ b }) {
   const { store, update } = useStore();
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   const st = store.book[b.key] || { done: false, agency: b.defAgency || '', price: b.defPrice || '' };
 
@@ -12,8 +14,8 @@ export default function BookTrack({ b }) {
   return (
     <div className={'booktrack' + (st.done ? ' isdone' : '') + (open ? ' open' : '')}>
       <div className="bthead" onClick={() => setOpen(o => !o)}>
-        <span>🎟️ {b.label} — booking tracker</span>
-        <span className="status">{st.done ? '✅ Booked' : '🕓 Buy ahead'}</span>
+        <span>{t('bt_tracker', { label: b.label })}</span>
+        <span className="status">{st.done ? t('bt_booked') : t('bt_buy_ahead')}</span>
       </div>
       <div className="btbody">
         <div className="switch">
@@ -21,14 +23,14 @@ export default function BookTrack({ b }) {
             <input type="checkbox" checked={!!st.done} onChange={e => setBooked(e.target.checked)} />
             <span className="slider"></span>
           </label>
-          <span className="swlbl">Mark as booked &amp; paid</span>
+          <span className="swlbl">{t('bt_mark_booked')}</span>
         </div>
         <div className="btrow">
-          <label>Agency / operator
+          <label>{t('bt_agency')}
             <input type="text" value={st.agency || ''} placeholder={b.placeAg || 'Agency name'}
               onChange={e => setField('agency', e.target.value)} />
           </label>
-          <label>Price paid · couple (USD)
+          <label>{t('bt_price_couple')}
             <input type="number" inputMode="decimal" value={st.price !== '' && st.price != null ? st.price : ''}
               placeholder={b.defPrice || ''} onChange={e => setField('price', e.target.value)} />
           </label>

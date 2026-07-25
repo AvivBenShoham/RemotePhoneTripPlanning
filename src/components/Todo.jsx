@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useStore } from '../hooks/useStore';
+import { useLang } from '../hooks/useLang';
 
 export default function Todo() {
   const { store, update } = useStore();
+  const { t } = useLang();
   const [input, setInput] = useState('');
 
   const ordered = Object.keys(store.todo || {})
@@ -20,7 +22,7 @@ export default function Todo() {
 
   return (
     <div className="todo">
-      <div className="todohead">✅ Trip To-Do</div>
+      <div className="todohead">{t('todo_head')}</div>
       <div>
         {ordered.map(it => (
           <div key={it.id} className={'todoitem' + (it.done ? ' done' : '')} onClick={() => toggle(it.id)}>
@@ -30,10 +32,10 @@ export default function Todo() {
           </div>
         ))}
         <div className="todoadd">
-          <input type="text" value={input} placeholder="Add a task…"
+          <input type="text" value={input} placeholder={t('todo_add_ph')}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); add(); } }} />
-          <button className="todoaddbtn" onClick={add}>Add</button>
+          <button className="todoaddbtn" onClick={add}>{t('todo_add_btn')}</button>
         </div>
       </div>
     </div>

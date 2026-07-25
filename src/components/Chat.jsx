@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { useChat } from '../hooks/useChat';
+import { useLang } from '../hooks/useLang';
 import { cap, fmtTime } from '../lib/format';
 
-function Msg({ dayId, m, canDelete, onDelete }) {
+function Msg({ dayId, m, canDelete, onDelete, t, lang }) {
   return (
     <div className="msg">
       <div className="msgmeta">
         <span className="msgname">{cap(m.name || 'Someone')}</span>
-        <span className="msgtime">{fmtTime(m.ts)}</span>
+        <span className="msgtime">{fmtTime(m.ts, t, lang)}</span>
         {canDelete && <button className="msgdel" title="Delete message" onClick={() => onDelete(dayId, m.id)}>✕</button>}
       </div>
       <div className="msgtext">{(m.text || '').split('\n').map((line, i, arr) => (
@@ -19,6 +20,7 @@ function Msg({ dayId, m, canDelete, onDelete }) {
 
 export default function Chat({ d }) {
   const { remoteReady, openChats, toggleChat, sendMsg, deleteMsg, isAviv, chatCount, sortedMsgs, unreadForDay } = useChat();
+  const { t, lang } = useLang();
   const open = !!openChats[d.id];
   const msgs = sortedMsgs(d.id);
   const n = chatCount(d.id);
@@ -46,7 +48,7 @@ export default function Chat({ d }) {
   return (
     <div className={'chat' + (open ? ' open' : '')} id={'chat-' + d.id}>
       <div className="chathead" onClick={() => toggleChat(d.id)}>
-        <span>💬 Day chat</span>
+        <span>{t('chat_head')}</span>
         <span className="chatcount">{n ? n : ''}</span>
         <span className={'chatunread' + (unread ? ' on' : '')}>{unread ? String(unread) : ''}</span>
         <span className="chatchev">▾</span>
@@ -56,18 +58,18 @@ export default function Chat({ d }) {
           <>
             <div className="chatlist" ref={listRef}>
               {msgs.length
-                ? msgs.map(m => <Msg key={m.id} dayId={d.id} m={m} canDelete={isAviv()} onDelete={deleteMsg} />)
-                : <div className="chatempty">No messages yet — start the conversation.</div>}
+                ? msgs.map(m => <Msg key={m.id} dayId={d.id} m={m} canDelete={isAviv()} onDelete={deleteMsg} t={t} lang={lang} />)
+                : <div className="chatempty">{t('chat_empty')}</div>}
             </div>
             <div className="chatcompose">
               <textarea ref={taRef} className="chatinput" rows="1" maxLength="2000"
-                placeholder="Write a note, reminder or debate for this day…"
+                placeholder={t('chat_input_ph')}
                 value={text} onChange={onInput} onKeyDown={onKey} />
               <button className="chatsend" onClick={send} aria-label="Send message">➤</button>
             </div>
           </>
         ) : (
-          <div className="chatoffline">💤 Day chat needs the live online page to sync.</div>
+          <div className="chatoffline">{t('chat_offline')}</div>
         )}
       </div>
     </div>

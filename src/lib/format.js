@@ -36,10 +36,13 @@ export function gmapsDir(d){
 }
 export function icoFor(m){return m||"🚌";}
 
-export function accShowing(a){return (a.price!==''&&a.price!=null&&!isNaN(a.price))?('$'+Number(a.price)):('$'+NIGHTLY_DEFAULT+' (default)');}
+export function accShowing(a,t){return (a.price!==''&&a.price!=null&&!isNaN(a.price))?('$'+Number(a.price)):('$'+NIGHTLY_DEFAULT+(t?t('acc_default_suffix'):' (default)'));}
 // format an <input type=date> value (yyyy-mm-dd) as dd/mm for the compact summary
 export function fmtCancelDate(v){if(!v)return "";const p=String(v).split('-');return p.length===3?(p[2]+'/'+p[1]):String(v);}
-export function accCancelText(a){return a.cancelUntil?('🟢 Free cancellation until '+fmtCancelDate(a.cancelUntil)):'🔒 No free cancellation';}
+export function accCancelText(a,t){
+  if(!t)return a.cancelUntil?('🟢 Free cancellation until '+fmtCancelDate(a.cancelUntil)):'🔒 No free cancellation';
+  return a.cancelUntil?t('acc_cancel_free',{date:fmtCancelDate(a.cancelUntil)}):t('acc_cancel_none');
+}
 export function accCancelClass(a){return a.cancelUntil?'acccancel free':'acccancel';}
 
 // ---- overview helpers ----
@@ -65,11 +68,12 @@ export function dayAttractions(store,d){
 export function shortAttr(label){return label.split(/ · | \+ | — /)[0].trim().replace(/\s+(stop|first)$/i,'');}
 
 // ---- chat time formatting ----
-export function fmtTime(ts){
+export function fmtTime(ts,t,lang){
   if(!ts)return '';
   const d=new Date(ts),diff=(Date.now()-ts)/1000;
-  if(diff<45)return 'just now';
-  if(diff<3600)return Math.floor(diff/60)+'m ago';
-  if(diff<86400)return Math.floor(diff/3600)+'h ago';
-  return d.toLocaleDateString(undefined,{month:'short',day:'numeric'})+' '+d.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'});
+  const loc=lang||undefined;
+  if(diff<45)return t?t('time_just_now'):'just now';
+  if(diff<3600){const n=Math.floor(diff/60);return t?t('time_min_ago',{n}):n+'m ago';}
+  if(diff<86400){const n=Math.floor(diff/3600);return t?t('time_hour_ago',{n}):n+'h ago';}
+  return d.toLocaleDateString(loc,{month:'short',day:'numeric'})+' '+d.toLocaleTimeString(loc,{hour:'2-digit',minute:'2-digit'});
 }

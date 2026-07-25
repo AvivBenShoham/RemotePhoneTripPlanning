@@ -1,13 +1,15 @@
 import { useState } from 'react';
+import { useLang } from '../hooks/useLang';
 
 export default function NotesPanel() {
+  const { t } = useLang();
   const [open, setOpen] = useState(false);
   return (
     <>
-      <button className="notesbtn" onClick={() => setOpen(true)}>💡 Important Notes</button>
+      <button className="notesbtn" onClick={() => setOpen(true)}>{t('notes_btn')}</button>
       <div className={'overlay' + (open ? ' open' : '')} onClick={() => setOpen(false)}></div>
       <aside className={'panel' + (open ? ' open' : '')}>
-        <div className="panelhead"><h2>💡 Important Notes</h2><button className="x" onClick={() => setOpen(false)}>✕</button></div>
+        <div className="panelhead"><h2>{t('notes_title')}</h2><button className="x" onClick={() => setOpen(false)}>✕</button></div>
         <div className="noteblk warn"><h4>🌦️ Check the weather — it will change</h4><p>This plan is built for typical August conditions, but the forecast <b>will shift</b> before you travel. A few days out, check the forecast and any tropical advisories (the US National Hurricane Center, nhc.noaa.gov, is the authority) and re-check each morning on the ground.</p><p>Rain rarely cancels a bus, but it can slow the roads and scrub a boat day. Keep the outdoor days (El Limón, Saona, the dive, Scape Park) flexible enough to swap with an indoor/town day if a storm lands — and if anything tropical is genuinely brewing, lean on the Aug 21 buffer and consider moving the SD return a day earlier.</p></div>
         <div className="noteblk warn"><h4>🧳 Check-in / check-out & luggage aren't in the schedule</h4><p>The hourly times don't include hotel check-in or check-out — those depend on each place (often check-in ~2–3pm, check-out ~11am–12pm). Build them in yourself, especially on the travel days.</p><p>On days you leave a town, remember you may need to <b>go back to collect your luggage</b> after check-out before heading to the bus — or ask the hotel to hold your bags so you can enjoy the morning and grab them on the way out. Confirm each place's exact times when you book.</p></div>
         <div className="noteblk gold"><h4>📱 TikTok input</h4><p>Beaches other travelers most often flagged as the area's most beautiful: <b>Playa Ermitaño</b>, <b>Playa Rincón</b>, and <b>Isla Saona</b>. Ermitaño and Saona are both in this plan (Day 2 optional and Day 6). Rincón was dropped because reaching it takes several guaguas plus a boat — worth knowing if you'd rather swap it back in.</p></div>

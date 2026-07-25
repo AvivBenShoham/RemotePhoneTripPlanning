@@ -6,12 +6,14 @@ import { chatRef, remoteReady, serverTimestamp } from '../firebase/client';
 import { days } from '../data/days';
 import { cap } from '../lib/format';
 import { useAuth } from './useAuth';
+import { useLang } from './useLang';
 
 const ChatCtx = createContext(null);
 export const useChat = () => useContext(ChatCtx);
 
 export function ChatProvider({ children }) {
   const { user, currentName, isAviv } = useAuth();
+  const { t } = useLang();
 
   const [chatCache, setChatCache] = useState({});   // {dayId:{msgId:msg}}
   const [openChats, setOpenChats] = useState({});   // {dayId:bool}
@@ -147,9 +149,9 @@ export function ChatProvider({ children }) {
 
   const deleteMsg = useCallback((dayId, msgId) => {
     if (!isAviv() || !chatRef) return;
-    if (!confirm('Delete this message?')) return;
+    if (!confirm(t('chat_delete_confirm'))) return;
     chatRef.child(dayId).child(msgId).remove().catch(() => {});
-  }, [isAviv]);
+  }, [isAviv, t]);
 
   const chatCount = useCallback((dayId) => { const c = chatCache[dayId]; return c ? Object.keys(c).length : 0; }, [chatCache]);
   const sortedMsgs = useCallback((dayId) => {
