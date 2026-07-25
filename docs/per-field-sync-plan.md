@@ -1,5 +1,10 @@
 # Plan: per-field sync (no more clobbering, live propagation)
 
+> **Status: implemented** on this branch. `src/hooks/useStore.jsx` now does
+> per-leaf writes + per-section `child_*` listeners with a focused-field guard;
+> the editable inputs in `Accommodation.jsx` and `BookTrack.jsx` carry
+> `data-sync` path tags. The design below is kept as the rationale/record.
+
 ## What you asked for
 
 > When I'm editing a field and the other person is also editing, they should
