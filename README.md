@@ -5,6 +5,12 @@ loop for two (Aug 11–21, 2026). Per-day Leaflet maps, live-updating cost total
 booking & accommodation trackers, toggleable optional activities, and a trip
 to-do checklist. It builds to static files and deploys to GitHub Pages.
 
+An **EN/ES language toggle** (top-left of the header) switches the whole
+interface between English and Spanish; the choice is remembered per device.
+Translations cover the UI chrome only — the editorial trip content (day titles,
+stop descriptions, and the Important Notes) stays in English. Strings live in
+`src/i18n/strings.js`.
+
 ## Local development
 
 ```bash

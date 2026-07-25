@@ -1,9 +1,11 @@
 import { useStore } from '../hooks/useStore';
+import { useLang } from '../hooks/useLang';
 import { days } from '../data/days';
 import { dayCost, transitMins, fmtMins, dayAttractions, shortAttr } from '../lib/format';
 
 export default function Overview() {
   const { store } = useStore();
+  const { t } = useLang();
 
   const total = days.reduce((s, d) => s + dayCost(store, d), 0);
   const nights = days.filter(d => d.stay).length;
@@ -28,22 +30,24 @@ export default function Overview() {
   return (
     <div>
       <div className="ovstats">
-        <div className="ovstat"><div className="n">${total.toLocaleString()}</div><div className="l">Total cost (USD)</div></div>
-        <div className="ovstat"><div className="n">~{fmtMins(tmins)}</div><div className="l">In transit</div></div>
-        <div className="ovstat"><div className="n">{days.length}</div><div className="l">Days</div></div>
-        <div className="ovstat"><div className="n">{nights}</div><div className="l">Nights</div></div>
+        <div className="ovstat"><div className="n">${total.toLocaleString()}</div><div className="l">{t('ov_total_cost')}</div></div>
+        <div className="ovstat"><div className="n">~{fmtMins(tmins)}</div><div className="l">{t('ov_in_transit')}</div></div>
+        <div className="ovstat"><div className="n">{days.length}</div><div className="l">{t('ov_days')}</div></div>
+        <div className="ovstat"><div className="n">{nights}</div><div className="l">{t('ov_nights')}</div></div>
       </div>
 
       <div className="ovcard">
-        <h3>🏨 Where you sleep</h3>
+        <h3>{t('ov_where_sleep')}</h3>
         {groups.map((g, gi) => {
           const n = g.days.length;
           const dayNums = g.days.map(d => d.n.replace('Day ', '')).filter((v, i, a) => a.indexOf(v) === i);
-          const range = dayNums.length > 1 ? `Days ${dayNums[0]}–${dayNums[dayNums.length - 1]}` : `Day ${dayNums[0]}`;
+          const range = dayNums.length > 1
+            ? t('ov_days_range', { a: dayNums[0], b: dayNums[dayNums.length - 1] })
+            : t('ov_day_single', { a: dayNums[0] });
           const attrs = []; g.days.forEach(d => dayAttractions(store, d).forEach(a => attrs.push(a)));
           return (
             <div className="ovplace" key={gi}>
-              <div className="ph"><span className="pn">{g.stay}</span><span className="pd">{n} night{n > 1 ? 's' : ''} · {range}</span></div>
+              <div className="ph"><span className="pn">{g.stay}</span><span className="pd">{n} {t(n > 1 ? 'ov_nights_plural' : 'ov_night')} · {range}</span></div>
               {attrs.length > 0 && (
                 <ul className="ovlist">
                   {attrs.map((a, ai) => <li key={ai}><span className="em">{a.emoji}</span>{shortAttr(a.label)}</li>)}
@@ -55,9 +59,9 @@ export default function Overview() {
       </div>
 
       <div className="ovcard">
-        <h3>🚌 Getting around</h3>
+        <h3>{t('ov_getting_around')}</h3>
         <div className="ovtrans" style={{ borderBottom: '2px solid var(--line)' }}>
-          <span className="tt"><b>Total ground transit</b></span>
+          <span className="tt"><b>{t('ov_total_ground')}</b></span>
           <span className="tm">~{fmtMins(tmins)} · ${transCost}</span>
         </div>
         {parts.map((p, pi) => (
@@ -68,7 +72,7 @@ export default function Overview() {
             ))}
           </div>
         ))}
-        <div className="ovnote">Estimated door-to-door times for the ground transfers; excursion boat rides aren't counted. Cost is the total transport fare for the couple.</div>
+        <div className="ovnote">{t('ov_note')}</div>
       </div>
     </div>
   );

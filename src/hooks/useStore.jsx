@@ -12,6 +12,7 @@ import { dbRef, remoteReady } from '../firebase/client';
 import { LS_KEY } from '../firebase/config';
 import { DEFAULT_TODO } from '../data/optionals';
 import { stableStr } from '../lib/format';
+import { useLang } from './useLang';
 
 const defaultStore = { opt:{beachhop:"moron",slowbeach:"coson",night:"strip"}, book:{}, acc:{}, todo:{} };
 const SECTIONS = ['opt', 'book', 'acc', 'todo'];
@@ -58,6 +59,7 @@ const StoreCtx = createContext(null);
 export const useStore = () => useContext(StoreCtx);
 
 export function StoreProvider({ children }) {
+  const { t } = useLang();
   const [store, setStore] = useState(initialStore);
   const storeRef = useRef(store);
   useEffect(() => { storeRef.current = store; }, [store]);
@@ -185,7 +187,7 @@ export function StoreProvider({ children }) {
   }, [store.todo, applyIncoming]);
 
   const resetAll = useCallback(() => {
-    if (!confirm('Clear all shared booking, accommodation & to-do entries and reset optionals to the recommended picks?')) return;
+    if (!confirm(t('reset_confirm'))) return;
     const seededTodo = {};
     DEFAULT_TODO.forEach((label, i) => { seededTodo['t' + (i + 1)] = { label, done: false, ts: i }; });
     const next = Object.assign(clone(defaultStore), { todo: seededTodo });
@@ -193,7 +195,7 @@ export function StoreProvider({ children }) {
     setStore(next);
     persistLocal(next);
     if (remoteReady) dbRef.set(next).catch(() => {});    // deliberate whole-node replace
-  }, []);
+  }, [t]);
 
   return <StoreCtx.Provider value={{ store, update, resetAll }}>{children}</StoreCtx.Provider>;
 }

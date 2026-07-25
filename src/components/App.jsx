@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { AuthProvider, useAuth } from '../hooks/useAuth';
 import { StoreProvider } from '../hooks/useStore';
 import { ChatProvider } from '../hooks/useChat';
+import { LanguageProvider, useLang } from '../hooks/useLang';
 import { days } from '../data/days';
 import Login from './Login';
 import Hero from './Hero';
@@ -11,27 +12,29 @@ import DayCard from './DayCard';
 import Todo from './Todo';
 import Alerts from './Alerts';
 import NotesPanel from './NotesPanel';
+import Rich from './Rich';
 
 function Itinerary({ active }) {
+  const { t } = useLang();
   return (
     <>
-      <div className="savenote"><span>🔗</span><div>Booking details, accommodation &amp; to-dos <b>sync live for everyone</b> — edit on any phone or laptop and the change shows up for the whole group within a second. (Live sync and the maps need the hosted page online; inside the chat preview it falls back to saving on this device only.)</div></div>
-      <div className="warnbanner"><span>⚠️</span><div>Prices are USD for the couple. Only <b>Scape Park ($120pp)</b> and taxi rates are your confirmed quotes; the rest are estimates (⚠ = unverified). Toggle optionals, mark things booked, add accommodation — every total updates live.</div></div>
-      <div className="legend"><h3>Legend</h3>
+      <div className="savenote"><span>🔗</span><div><Rich text={t('savenote_html')} /></div></div>
+      <div className="warnbanner"><span>⚠️</span><div><Rich text={t('warnbanner_html')} /></div></div>
+      <div className="legend"><h3>{t('legend_title')}</h3>
         <div className="legrow" style={{ marginBottom: '10px' }}>
-          <span className="legitem"><span className="tag spot">📍 Buy on the spot</span></span>
-          <span className="legitem"><span className="tag ahead">🕓 Buy ahead</span></span>
-          <span className="legitem"><span className="tag book">✅ Booked</span></span>
+          <span className="legitem"><span className="tag spot">{t('legend_buy_spot')}</span></span>
+          <span className="legitem"><span className="tag ahead">{t('legend_buy_ahead')}</span></span>
+          <span className="legitem"><span className="tag book">{t('legend_booked')}</span></span>
         </div>
         <div className="legrow">
-          <span className="legitem"><span className="ico act">🏝️</span> Activity</span>
-          <span className="legitem"><span className="ico cost">💵</span> Cost</span>
-          <span className="legitem"><span className="rec">PICK</span> My pick</span>
+          <span className="legitem"><span className="ico act">🏝️</span> {t('legend_activity')}</span>
+          <span className="legitem"><span className="ico cost">💵</span> {t('legend_cost')}</span>
+          <span className="legitem"><span className="rec">{t('opt_pick')}</span> {t('legend_my_pick')}</span>
         </div>
       </div>
       <div>{days.map(d => <DayCard key={d.id} d={d} active={active} />)}</div>
       <Todo />
-      <div className="foot">Maps © OpenStreetMap contributors · markers are exact; the line connects stops in order (straight-line). Tap “open in Google Maps” for live road navigation.<br />Tap <b>Important Notes</b> for the reasoning behind the route.</div>
+      <div className="foot"><Rich text={t('foot_html')} /></div>
     </>
   );
 }
@@ -70,8 +73,10 @@ function Gate() {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <Gate />
-    </AuthProvider>
+    <LanguageProvider>
+      <AuthProvider>
+        <Gate />
+      </AuthProvider>
+    </LanguageProvider>
   );
 }
