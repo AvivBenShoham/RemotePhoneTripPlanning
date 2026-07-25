@@ -27,11 +27,11 @@ export default function BookTrack({ b }) {
         </div>
         <div className="btrow">
           <label>{t('bt_agency')}
-            <input type="text" value={st.agency || ''} placeholder={b.placeAg || 'Agency name'}
+            <input type="text" data-sync={`book/${b.key}/agency`} value={st.agency || ''} placeholder={b.placeAg || 'Agency name'}
               onChange={e => setField('agency', e.target.value)} />
           </label>
           <label>{t('bt_price_couple')}
-            <input type="number" inputMode="decimal" value={st.price !== '' && st.price != null ? st.price : ''}
+            <input type="number" inputMode="decimal" data-sync={`book/${b.key}/price`} value={st.price !== '' && st.price != null ? st.price : ''}
               placeholder={b.defPrice || ''} onChange={e => setField('price', e.target.value)} />
           </label>
         </div>

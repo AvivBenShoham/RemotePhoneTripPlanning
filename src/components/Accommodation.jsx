@@ -36,26 +36,26 @@ export default function Accommodation({ d }) {
         <div className="accprice-line">{t('acc_nightly_rate')} <span>{accShowing(a, t)}</span></div>
         <div className="btrow">
           <label>{t('acc_place_name')}
-            <input type="text" value={a.name || ''} placeholder={t('acc_place_name_ph')} onChange={e => setField('name', e.target.value)} />
+            <input type="text" data-sync={`acc/${d.id}/name`} value={a.name || ''} placeholder={t('acc_place_name_ph')} onChange={e => setField('name', e.target.value)} />
           </label>
           <label>{t('acc_price_night')}
-            <input type="number" inputMode="decimal" value={a.price !== '' && a.price != null ? a.price : ''}
+            <input type="number" inputMode="decimal" data-sync={`acc/${d.id}/price`} value={a.price !== '' && a.price != null ? a.price : ''}
               placeholder={NIGHTLY_DEFAULT} onChange={e => setField('price', e.target.value)} />
           </label>
         </div>
         <div className="btrow">
           <label>{t('acc_free_cancel_until')}
-            <input type="date" value={a.cancelUntil || ''} onChange={e => setField('cancelUntil', e.target.value)} />
+            <input type="date" data-sync={`acc/${d.id}/cancelUntil`} value={a.cancelUntil || ''} onChange={e => setField('cancelUntil', e.target.value)} />
           </label>
         </div>
         <div className="btrow">
           <label>{t('acc_booking_notes')}
-            <input type="text" value={a.notes || ''} placeholder={t('acc_booking_notes_ph')} onChange={e => setField('notes', e.target.value)} />
+            <input type="text" data-sync={`acc/${d.id}/notes`} value={a.notes || ''} placeholder={t('acc_booking_notes_ph')} onChange={e => setField('notes', e.target.value)} />
           </label>
         </div>
         <div className="btrow">
           <label>{t('acc_booking_link')}
-            <input type="url" value={a.link || ''} placeholder="https://…" onChange={e => setField('link', e.target.value)} />
+            <input type="url" data-sync={`acc/${d.id}/link`} value={a.link || ''} placeholder="https://…" onChange={e => setField('link', e.target.value)} />
           </label>
         </div>
         {a.link && (
