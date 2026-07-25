@@ -5,7 +5,7 @@ export const days = [
    stops:[
      {t:"06:46",title:"Land at SDQ",desc:"Immigration + bags. Change money / ATM for pesos before leaving.",act:"🛬"},
      {leg:"Taxi airport → Asotrapusa station (in Santo Domingo)",op:"Street taxi",cost:55,mode:"🚕",mins:40},
-     {t:"09:30",title:"Bus to Las Terrenas",desc:"~3 hrs. Buy at counter, cash. Miss it → 11:00 backup.",act:"🚌",cost:18,spot:true,op:"Asotrapusa",mins:180},
+     {t:"09:30",title:"Bus to Las Terrenas",desc:"~2h30 from Calle Barahona #29 (behind Plaza Lama). RD$500, cash at the counter. Departures 08:30/09:30/11:00/13:40/15:00, last 18:00 — so 11:00 and 13:40 are real backups if immigration drags.",act:"🚌",cost:18,spot:true,op:"Asotrapusa",mins:180},
      {t:"12:30",title:"Check in & nap",desc:"Recover from the red-eye before the beach.",act:"🛏️",cost:10},
      {t:"16:00",title:"Playa Punta Popy",desc:"Relaxed public beach right in town, walkable from the center — a good spot to unwind after the flight.",act:"🏖️",cost:0,free:true},
      {t:"19:30",title:"Dinner · Pueblo de los Pescadores",desc:"Restaurant and bar strip on the seafront.",act:"🍹",cost:36}]},
@@ -27,10 +27,10 @@ export const days = [
   {id:"d4",n:"Day 4",date:"Sun · Aug 16",title:"Las Terrenas → Bayahibe",stay:"Bayahibe",
    pts:[[19.3087,-69.5443,"Las Terrenas"],[18.4585,-69.9540,"Santo Domingo"],[18.4273,-68.9728,"La Romana"],[18.3607,-68.8419,"Bayahibe"]],
    stops:[
-     {leg:"Express bus → Santo Domingo (~3 hrs). Take the 08:30.",op:"Asotrapusa",cost:18,mode:"🚌",mins:180},
+     {leg:"Express bus → Santo Domingo (~2h30). Take the 09:00 (departures 05:00/07:00/09:00/11:00/14:00/15:30 — no 08:30).",op:"Asotrapusa",cost:18,mode:"🚌",mins:180},
      {leg:"Taxi across SD to eastern bus zone (Parque Enriquillo)",op:"Street taxi",cost:10,mode:"🚕",mins:30},
-     {leg:"Bus toward La Romana",op:"Expreso / guagua",cost:12,mode:"🚌",mins:90},
-     {leg:"Guagua La Romana → Bayahibe (last ones thin out early evening)",op:"Local guagua",cost:4,mode:"🚐",mins:30},
+     {leg:"Bus to La Romana from Ravelo St. at Parque Enriquillo — hourly 5am–9pm, ~1h30. Watch your bags here",op:"SICHOEM / Expreso Romana",cost:12,mode:"🚌",mins:90},
+     {leg:"Guagua La Romana → Bayahibe from near Jumbo supermarket — every ~20 min, last one ~18:00",op:"Local guagua",cost:4,mode:"🚐",mins:30},
      {t:"15:30",title:"Arrive Bayahibe",desc:"Fishing village on the south coast; the base for the dive and Saona trips.",act:"⚓",cost:0,free:true},
      {t:"16:30",title:"Confirm tomorrow's dive in person",desc:"Settle certification status and payment at the shop.",act:"🤿",cost:0},
      {t:"18:45",title:"Sunset on the waterfront + dinner",desc:"The waterfront faces roughly west. Dinner in the village.",act:"🌅",cost:18}]},
@@ -57,8 +57,8 @@ export const days = [
   {id:"d7",n:"Day 7",date:"Wed · Aug 19",title:"Bayahibe → Punta Cana + night",stay:"Punta Cana / Bávaro",
    pts:[[18.3607,-68.8419,"Bayahibe"],[18.4273,-68.9728,"La Romana"],[18.6800,-68.4500,"Bávaro"],[18.7360,-68.4290,"Playa Macao"]],
    stops:[
-     {leg:"Guagua Bayahibe → La Romana",op:"Local guagua",cost:4,mode:"🚐",mins:30},
-     {leg:"Bus La Romana → Punta Cana (~1 hr)",op:"Expreso / Sichoprola",cost:8,mode:"🚌",mins:60},
+     {leg:"Guagua Bayahibe → La Romana — leave by ~09:45 to catch the 10:50. Runs every ~20 min, 15–30 min ride",op:"Local guagua",cost:4,mode:"🚐",mins:30},
+     {leg:"Bus La Romana → Punta Cana, aim for the 10:50 (also 05:40/08:20/13:20/15:20), ~1 hr",op:"SITRABAPU / SITRAIR",cost:8,mode:"🚌",mins:60},
      {t:"11:30",title:"Arrive, drop bags, lunch",desc:"Settle into the Bávaro area.",act:"🍽️",cost:10},
      {leg:"Taxi/guagua to Playa Macao",op:"Local taxi",cost:28,mode:"🚕",mins:30},
      {t:"13:30",title:"Playa Macao",desc:"A wide, natural public beach not walled off by resorts — sand, open water and a rugged feel. It has real waves and an undertow, so swim with care; surf lessons are available.",act:"🏄",cost:0,free:true},
@@ -77,7 +77,7 @@ export const days = [
    pts:[[18.6800,-68.4500,"Bávaro (Friusa)"],[18.4585,-69.9540,"Santo Domingo"],[18.4820,-69.8590,"Los Tres Ojos"],[18.4732,-69.8829,"Zona Colonial"]],
    stops:[
      {leg:"Taxi to Bávaro bus station (Friusa)",op:"Street taxi",cost:30,mode:"🚕",mins:20},
-     {t:"07:00",title:"Expreso Bávaro → Santo Domingo",desc:"~3–3.5 hrs. Cash, day-of, arrive ~45 min early. Backup 09:00.",act:"🚌",cost:14,spot:true,op:"Expreso Bávaro",mins:195},
+     {t:"07:00",title:"Expreso Bávaro → Santo Domingo",desc:"~3–3.5 hrs from the Friusa station. First bus 07:00, then roughly every 2 hrs. Cash, day-of only — arrive ~1 hr early, buses sometimes fill. Phone ahead: Friusa 809-552-1678, SD 809-682-9670.",act:"🚌",cost:14,spot:true,op:"Expreso Bávaro",mins:195},
      {t:"11:30",title:"Complete your EXIT E-Ticket",desc:"eticket.migracion.gob.do — official site only. Today, not at the airport.",act:"🎫",cost:0},
      {t:"12:30",title:"Los Tres Ojos",desc:"Open-air limestone caverns with lagoons, in Mirador del Este park. Low entry fee.",act:"🕳️",cost:3,spot:true},
      {t:"15:00",title:"Zona Colonial",desc:"The cobblestone historic core and a UNESCO site — the oldest continuously inhabited European settlement in the Americas. Walk Calle Las Damas (the first paved street in the Americas), the Alcázar de Colón (Diego Columbus's palace, now a museum), and Fortaleza Ozama. Lively with cafés, bars and music into the evening. Some sites charge a small entry fee.",act:"🏛️",cost:8,spot:true},
