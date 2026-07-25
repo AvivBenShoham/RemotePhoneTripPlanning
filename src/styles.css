@@ -203,6 +203,13 @@ header.hero::after{content:"";position:absolute;right:-40px;top:-40px;width:200p
 .logoutbtn{position:absolute;right:14px;top:14px;z-index:2;background:rgba(0,0,0,.18);color:#fff;border:1px solid rgba(255,255,255,.3);
   border-radius:20px;padding:6px 12px;font-size:.72rem;font-weight:600;cursor:pointer;font-family:inherit}
 .logoutbtn:active{transform:scale(.97)}
+/* ---- language toggle ---- */
+.langtoggle{position:absolute;left:14px;top:14px;z-index:2;display:inline-flex;gap:2px;background:rgba(0,0,0,.18);
+  border:1px solid rgba(255,255,255,.3);border-radius:20px;padding:2px}
+.langtoggle button{background:none;border:0;color:#fff;font-family:inherit;font-size:.72rem;font-weight:700;
+  padding:5px 10px;border-radius:16px;cursor:pointer;opacity:.75;line-height:1}
+.langtoggle button.on{background:rgba(255,255,255,.25);opacity:1}
+.langtoggle button:active{transform:scale(.97)}
 /* ---- per-day chat ---- */
 .chat{margin:2px 14px 14px;border:1.5px solid var(--line);border-radius:12px;background:#fbfdfd;overflow:hidden}
 .chathead{display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;font-size:.8rem;font-weight:700;color:var(--turq-d)}

@@ -1,15 +1,17 @@
+import { useLang } from '../hooks/useLang';
 import Leg from './Leg';
 import Optional from './Optional';
 import BookTrack from './BookTrack';
 
 export default function Stop({ s }) {
+  const { t } = useLang();
   if (s.leg !== undefined) return <Leg s={s} />;
   if (s.optional !== undefined) return <Optional optKey={s.optional} />;
 
   const tag = s.book
-    ? <span className="tag ahead">🕓 Buy ahead</span>
-    : s.spot ? <span className="tag spot">📍 On the spot</span>
-    : s.free ? <span className="tag spot">📍 Free</span> : null;
+    ? <span className="tag ahead">{t('tag_buy_ahead')}</span>
+    : s.spot ? <span className="tag spot">{t('tag_on_spot')}</span>
+    : s.free ? <span className="tag spot">{t('tag_free')}</span> : null;
 
   return (
     <div className="stop">

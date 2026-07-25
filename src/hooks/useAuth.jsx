@@ -39,8 +39,9 @@ export function AuthProvider({ children }) {
   const login = useCallback((rawName, rawPass) => {
     const n = (rawName || '').trim().toLowerCase();
     const p = (rawPass || '').trim().toLowerCase();
-    if (!authReady) { setError("Sign-in isn't configured yet — see README."); return; }
-    if (!n || !p) { setError('Enter your name and password.'); return; }
+    // error is a stable code; the Login component maps it through i18n.
+    if (!authReady) { setError('not_configured'); return; }
+    if (!n || !p) { setError('empty'); return; }
     setError(''); setBusy(true);
     auth.signInWithEmailAndPassword(n + '@' + EMAIL_DOMAIN, p)
       .then(cred => {
@@ -54,7 +55,7 @@ export function AuthProvider({ children }) {
       })
       .catch(() => {
         setBusy(false);
-        setError("That name and password don't match.");
+        setError('mismatch');
       });
   }, []);
 

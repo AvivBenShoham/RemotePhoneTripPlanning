@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useChat } from '../hooks/useChat';
+import { useLang } from '../hooks/useLang';
 import { cap, fmtTime } from '../lib/format';
 
 function Toast({ t, onClick, onClose }) {
@@ -22,6 +23,7 @@ export default function Alerts() {
     remoteReady, totalUnread, alertsOpen, toggleAlerts, closeAlerts, openAlertDay,
     markAllAndClose, alertItems, toasts, removeToast, focusChat,
   } = useChat();
+  const { t, lang } = useLang();
 
   const n = totalUnread();
   const items = alertItems();
@@ -42,17 +44,17 @@ export default function Alerts() {
 
       <div className={'overlay' + (alertsOpen ? ' open' : '')} onClick={closeAlerts}></div>
       <aside className={'panel' + (alertsOpen ? ' open' : '')}>
-        <div className="panelhead"><h2>🔔 Unread messages</h2><button className="x" onClick={closeAlerts}>✕</button></div>
-        <button className="markall" onClick={markAllAndClose}>Mark all as read</button>
+        <div className="panelhead"><h2>{t('alerts_title')}</h2><button className="x" onClick={closeAlerts}>✕</button></div>
+        <button className="markall" onClick={markAllAndClose}>{t('alerts_mark_all')}</button>
         <div>
           {items.length === 0
-            ? <div className="alertsempty">🎉 You're all caught up — no unread messages.</div>
+            ? <div className="alertsempty">{t('alerts_empty')}</div>
             : items.map((it, i) => (
               <div className="alertitem" key={i} onClick={() => openAlertDay(it.dayId)}>
                 <div className="alertmeta">
                   <span className="alertday">{it.dn}</span>
                   <span className="alertname">{cap(it.m.name || 'Someone')}</span>
-                  <span className="alerttime">{fmtTime(it.m.ts)}</span>
+                  <span className="alerttime">{fmtTime(it.m.ts, t, lang)}</span>
                 </div>
                 <div className="alerttext">{(it.m.text || '').slice(0, 160).split('\n').map((line, li, arr) => (
                   <span key={li}>{line}{li < arr.length - 1 && <br />}</span>
