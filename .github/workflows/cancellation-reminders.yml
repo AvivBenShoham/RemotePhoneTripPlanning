@@ -1,0 +1,63 @@
+name: Free-cancellation email reminders
+
+# Emails the trip crew 2 days and 1 day before an accommodation option's
+# free-cancellation date. The planner is a static site, so the schedule lives
+# here instead of in the browser — see scripts/cancellation-reminders.mjs.
+on:
+  schedule:
+    # 09:00 in the Dominican Republic (AST, UTC-4 year-round) = 13:00 UTC.
+    # GitHub's scheduler can lag by a few minutes; the script's per-date
+    # markers make a late or repeated run harmless.
+    - cron: '0 13 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Print the email instead of sending it'
+        type: boolean
+        default: false
+      force:
+        description: 'Resend even if the reminder was already sent'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cancellation-reminders
+  cancel-in-progress: false
+
+jobs:
+  remind:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Send due reminders
+        env:
+          # trip account used to read the shared state (same login as the app)
+          FIREBASE_EMAIL: ${{ secrets.FIREBASE_EMAIL }}
+          FIREBASE_PASSWORD: ${{ secrets.FIREBASE_PASSWORD }}
+          # optional: only needed if the key in src/firebase/config.js is rotated
+          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
+          # outgoing mail server (e.g. smtp.gmail.com + an app password)
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          SMTP_FROM: ${{ secrets.SMTP_FROM }}
+          NOTIFY_TO: ${{ secrets.NOTIFY_TO }}
+          NOTIFY_TZ: ${{ vars.NOTIFY_TZ }}
+          DRY_RUN: ${{ inputs.dry_run && '1' || '' }}
+          NOTIFY_FORCE: ${{ inputs.force && '1' || '' }}
+        run: npm run reminders

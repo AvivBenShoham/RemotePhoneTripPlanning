@@ -7,6 +7,7 @@ export default function TopNav({ tab, onTab }) {
       <div className="wrap topnavwrap">
         <button className={'navbtn' + (tab === 'overview' ? ' active' : '')} onClick={() => onTab('overview')}>{t('nav_overview')}</button>
         <button className={'navbtn' + (tab === 'itinerary' ? ' active' : '')} onClick={() => onTab('itinerary')}>{t('nav_itinerary')}</button>
+        <button className={'navbtn' + (tab === 'booked' ? ' active' : '')} onClick={() => onTab('booked')}>{t('nav_booked')}</button>
       </div>
     </nav>
   );

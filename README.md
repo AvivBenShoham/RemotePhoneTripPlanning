@@ -2,8 +2,10 @@
 
 An interactive **React (Vite)** trip planner for an 11-day Dominican Republic
 loop for two (Aug 11–21, 2026). Per-day Leaflet maps, live-updating cost totals,
-booking & accommodation trackers, toggleable optional activities, and a trip
-to-do checklist. It builds to static files and deploys to GitHub Pages.
+booking & accommodation trackers (several options per night), a **Booked** tab
+listing everything already locked in, toggleable optional activities, a trip
+to-do checklist, and **email reminders before each free-cancellation date**. It
+builds to static files and deploys to GitHub Pages.
 
 An **EN/ES language toggle** (top-left of the header) switches the whole
 interface between English and Spanish; the choice is remembered per device.
@@ -27,16 +29,48 @@ or a build — you can no longer just double-click a file to open it.
 
 ### Accommodation cards
 
-Each night has an accommodation card that stores its place name, nightly price,
-booking link, a **free-cancellation-until date** (empty by default = no free
-cancellation), and free-text **booking notes** (e.g. *"free cancellation until
-28/07"*). Every field — including the new cancellation date and notes — is part
-of the shared state and **syncs live via Firebase** (see below), so the whole
-group sees the same details.
+Each night has an accommodation card holding one or more **options**. An option
+stores its place name, nightly price, booking link, a **free-cancellation-until
+date** (empty by default = no free cancellation), and free-text **booking
+notes** (e.g. *"free cancellation until 28/07"*). Every field is part of the
+shared state and **syncs live via Firebase** (see below), so the whole group
+sees the same details.
 
-Cards are **collapsed by default** to keep day cards compact: the collapsed
-header shows only whether the stay is booked and its cancellation status (plus
-any booking note underneath). Tap the header to expand and edit.
+**Several options for the same night.** When you've held two (or three) places
+for one date while you decide — or booked both because they were refundable —
+tap **＋ Add another option** and fill in the second one. Each option has its own
+booked toggle, price and cancellation date, so a night can legitimately show
+*"✅ 2 booked"*.
+
+- One option is the **★ main pick** — the only one counted in the day total and
+  the trip total, so holding a backup never inflates your budget. Tap **Use as
+  main pick** on any option to switch. Without an explicit pick the first booked
+  option (or simply the first) is used.
+- **✕** removes an option; the last remaining one can't be removed (it just
+  empties).
+- Cards stay **collapsed by default** to keep day cards compact: the header
+  shows the option count, whether/how many are booked, and the main pick's
+  cancellation status, with any booking notes underneath. Tap to expand.
+
+Under the hood an option lives at `acc/<dayId>/options/<optId>`, with the pick at
+`acc/<dayId>/chosen`. Cards saved by the earlier single-option version are read
+as one option (`o1`) and rewritten into the new shape the first time you edit
+them — nothing to migrate by hand.
+
+### ✅ Booked tab
+
+A third tab collects **everything already booked** in one place, so you don't
+have to scroll the itinerary to see what's locked in:
+
+- **Booked stays** — every booked accommodation option (including the extra ones
+  held for the same night), with its night, price, notes, booking link, and
+  whether it's the main pick or a duplicate to cancel.
+- **Booked activities & tours** — every booking tracker marked done, with its
+  agency and the price actually paid.
+- **Free-cancellation deadlines** — the still-open ones, soonest first, turning
+  red inside the last two days.
+- Totals at the top: booked spend, how many stays and activities are booked, and
+  how many cancellation windows are still open.
 
 ## Shared, live sync
 
@@ -180,11 +214,66 @@ a GitHub Actions workflow — [`.github/workflows/pages.yml`](.github/workflows/
 > Because the app is now built (not a static file), *Deploy from a branch* would
 > serve raw source instead of the build — keep the Actions workflow.
 
+## Email reminders before a free-cancellation date
+
+Two days before, and again one day before, an accommodation option's
+**free-cancellation date**, the trip gets an email listing what's about to stop
+being refundable — so nothing you're holding "just in case" quietly turns into a
+charge.
+
+The planner is a static site, so nothing in the browser can send mail on a
+schedule. Instead a daily GitHub Actions job —
+[`.github/workflows/cancellation-reminders.yml`](.github/workflows/cancellation-reminders.yml)
+— runs [`scripts/cancellation-reminders.mjs`](scripts/cancellation-reminders.mjs),
+which signs in to the same Firebase project the app uses, reads the shared trip
+state, and mails whatever is due. It runs at **13:00 UTC (09:00 in the Dominican
+Republic)**; you can also trigger it by hand from the **Actions** tab.
+
+Every option with a cancellation date is covered, booked or not (the mail says
+which). Each send is recorded under `trips/<TRIP_ID>_notify`, so a re-run — or
+GitHub firing the schedule twice — never sends the same reminder again.
+
+### Setup (repo secrets)
+
+*Settings → Secrets and variables → Actions → New repository secret:*
+
+| Secret | What it is |
+|--------|------------|
+| `FIREBASE_EMAIL` | a trip account, e.g. `aviv@tripvisualize.app` |
+| `FIREBASE_PASSWORD` | that account's password |
+| `SMTP_HOST` | e.g. `smtp.gmail.com` |
+| `SMTP_PORT` | `587` (STARTTLS) or `465` (TLS) — defaults to 587 |
+| `SMTP_USER` / `SMTP_PASS` | mailbox login. For Gmail use an **app password**, not the account password |
+| `SMTP_FROM` | optional `From:` address (defaults to `SMTP_USER`) |
+| `NOTIFY_TO` | comma-separated recipients, e.g. `aviv@…,karol@…` |
+
+Optional: `FIREBASE_API_KEY` (only if the key in `src/firebase/config.js` is
+rotated) and the repo **variable** `NOTIFY_TZ` (the timezone "today" is measured
+in; defaults to `America/Santo_Domingo`).
+
+Until the secrets exist the job just fails fast with a one-line message and sends
+nothing. To check it without emailing anyone, run *Actions → Free-cancellation
+email reminders → Run workflow* with **dry run** ticked — it prints the mail it
+would have sent. Locally the same thing is:
+
+```bash
+FIREBASE_EMAIL=… FIREBASE_PASSWORD=… DRY_RUN=1 npm run reminders
+```
+
+Ticking **force** (or `NOTIFY_FORCE=1`) ignores the already-sent markers and
+resends.
+
 ## Notes & trade-offs
 
-- **Concurrency:** writes save the whole state blob (last-write-wins). If two
-  people edit *different* fields within the same ~0.4s window, one change can be
-  dropped. Rare for a trip planner. Hardening later = per-field writes.
+- **Concurrency:** every edit writes only the leaf that changed (e.g.
+  `acc/d1/options/o2/price`), so two people editing different fields — even in
+  the same accommodation card — merge server-side instead of clobbering each
+  other. The only value held back while you type is the exact field under your
+  cursor.
+- **Reminder timing:** GitHub's cron can lag by several minutes and very
+  occasionally skips a run. The reminders are per-date rather than per-hour, and
+  they fire twice (2 days and 1 day out), so a late or missed run isn't a
+  missed deadline.
 - **Offline / chat preview:** if Firebase or the network isn't available (e.g. the
   in-chat preview, or before the API key is set), the page skips the sign-in gate
   and runs locally with `localStorage` so the itinerary is still viewable; maps

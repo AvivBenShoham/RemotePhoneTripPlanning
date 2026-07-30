@@ -8,6 +8,7 @@ import Login from './Login';
 import Hero from './Hero';
 import TopNav from './TopNav';
 import Overview from './Overview';
+import Booked from './Booked';
 import DayCard from './DayCard';
 import Todo from './Todo';
 import Alerts from './Alerts';
@@ -52,6 +53,7 @@ function Main() {
         <section className={'tabpane' + (tab === 'itinerary' ? ' active' : '')}>
           <Itinerary active={tab === 'itinerary'} />
         </section>
+        <section className={'tabpane' + (tab === 'booked' ? ' active' : '')}><Booked /></section>
       </div>
       <Alerts />
       <NotesPanel />
