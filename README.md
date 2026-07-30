@@ -251,8 +251,10 @@ Optional: `FIREBASE_API_KEY` (only if the key in `src/firebase/config.js` is
 rotated) and the repo **variable** `NOTIFY_TZ` (the timezone "today" is measured
 in; defaults to `America/Santo_Domingo`).
 
-Until the secrets exist the job just fails fast with a one-line message and sends
-nothing. To check it without emailing anyone, run *Actions → Free-cancellation
+Until any of the secrets exist the job just logs *"not configured yet"* and
+exits green, so the daily schedule doesn't nag you before setup; once some are
+set, a missing one fails loudly instead of sending half a reminder. To check it
+without emailing anyone, run *Actions → Free-cancellation
 email reminders → Run workflow* with **dry run** ticked — it prints the mail it
 would have sent. Locally the same thing is:
 

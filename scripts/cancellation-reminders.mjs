@@ -185,6 +185,16 @@ async function main() {
     from: process.env.SMTP_FROM || process.env.SMTP_USER,
   };
 
+  // Nothing configured at all = the secrets haven't been added yet. Skip quietly
+  // instead of failing, so the daily schedule doesn't mail a red ❌ every morning
+  // before setup. A *partly* filled setup still fails loudly below.
+  const configured = [email, password, process.env.SMTP_HOST, process.env.SMTP_USER, process.env.SMTP_PASS, process.env.NOTIFY_TO]
+    .filter(v => v && String(v).trim());
+  if (!configured.length) {
+    log('Reminders are not configured yet (no Firebase/SMTP secrets set) — nothing to do. See README → "Email reminders".');
+    return;
+  }
+
   if (!email || !password) fail('FIREBASE_EMAIL / FIREBASE_PASSWORD are not set — cannot read the shared trip.');
   if (!API_KEY || API_KEY.includes('PASTE')) fail('No Firebase Web API key (set FIREBASE_API_KEY or fill src/firebase/config.js).');
   if (!DRY_RUN) {
