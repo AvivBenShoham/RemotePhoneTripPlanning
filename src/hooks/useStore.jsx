@@ -11,7 +11,7 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback } f
 import { dbRef, remoteReady } from '../firebase/client';
 import { LS_KEY } from '../firebase/config';
 import { DEFAULT_TODO } from '../data/optionals';
-import { stableStr } from '../lib/format';
+import { stableStr, mergeKeepingFocus } from '../lib/format';
 import { useLang } from './useLang';
 
 const defaultStore = { opt:{beachhop:"moron",slowbeach:"coson",night:"strip"}, book:{}, acc:{}, todo:{} };
@@ -108,19 +108,17 @@ export function StoreProvider({ children }) {
   // merge one incoming record (section/key) from a child event. For object
   // records we take the server's fields but keep the local value of the exact
   // field under the cursor, so a remote change never yanks what you're typing.
+  // The field may sit several levels deep (e.g. acc/d1/options/o2/name), so the
+  // path is walked segment by segment and only the leaf is restored.
   const mergeChild = useCallback((section, key, incoming) => {
     setStore((prev) => {
       const secObj = prev[section] || {};
       const cur = secObj[key];
       let merged;
       if (incoming && typeof incoming === 'object' && !Array.isArray(incoming)) {
-        merged = { ...incoming };
         const fp = focusedPath();
         const pfx = section + '/' + key + '/';
-        if (fp && fp.indexOf(pfx) === 0) {
-          const field = fp.slice(pfx.length);
-          if (field && cur && (field in cur)) merged[field] = cur[field];   // preserve in-progress typing
-        }
+        merged = mergeKeepingFocus(cur, incoming, (fp && fp.indexOf(pfx) === 0) ? fp.slice(pfx.length) : '');
       } else {
         merged = incoming;
       }

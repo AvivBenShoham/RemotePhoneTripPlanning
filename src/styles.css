@@ -33,6 +33,9 @@ header.hero::after{content:"";position:absolute;right:-40px;top:-40px;width:200p
 .topnavwrap{display:flex;gap:8px;padding:8px 14px}
 .navbtn{flex:1;border:1px solid var(--line);background:#fff;color:var(--muted);border-radius:12px;padding:10px 8px;font-size:.92rem;font-weight:700;font-family:inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:.15s}
 .navbtn.active{background:var(--turq);color:#fff;border-color:var(--turq);box-shadow:var(--shadow-l)}
+/* three tabs have to fit a narrow phone without wrapping */
+.navbtn{white-space:nowrap}
+@media (max-width:430px){.topnavwrap{gap:6px}.navbtn{font-size:.8rem;padding:9px 4px;gap:4px}}
 .tabpane{display:none}
 .tabpane.active{display:block}
 /* overview */
@@ -136,6 +139,49 @@ header.hero::after{content:"";position:absolute;right:-40px;top:-40px;width:200p
 .acc.open .accbody{display:block}
 .acc.booked{border-style:solid;background:#f0f9f4;border-color:var(--done)}
 .acc.booked .acchead{color:#227a52}
+.accopts{padding:3px 9px;border-radius:20px;background:#fff;border:1px solid var(--line);color:var(--muted);font-weight:700}
+/* one candidate booking for a night (a night can hold several) */
+.accopt{border:1px solid var(--line);border-radius:10px;background:#fff;padding:9px 10px 11px;margin-top:9px}
+.accopt.isbooked{border-color:var(--done);background:#f7fdf9}
+.accopt.ismain{box-shadow:0 0 0 2px rgba(10,169,160,.18)}
+.accopthead{display:flex;align-items:center;gap:8px}
+.accoptname{font-size:.8rem;font-weight:700;color:var(--turq-d);flex:1 1 auto;min-width:0;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.accmain{flex:0 0 auto;font-size:.66rem;font-weight:700;background:var(--turq);color:#fff;padding:3px 8px;border-radius:20px}
+.accpick{flex:0 0 auto;font-family:inherit;font-size:.66rem;font-weight:700;color:var(--turq-d);background:#fff;
+  border:1px solid var(--turq);border-radius:20px;padding:3px 9px;cursor:pointer}
+.accpick:active{background:var(--sky)}
+.accrm{flex:0 0 auto;background:none;border:0;color:var(--muted);font-size:.9rem;line-height:1;width:26px;height:26px;
+  border-radius:7px;cursor:pointer;font-family:inherit}
+.accrm:active{background:#fdece9;color:var(--coral-d)}
+.accintotal{font-style:normal;color:var(--turq-d)}
+.accadd{margin-top:10px;width:100%;font-family:inherit;font-size:.8rem;font-weight:700;color:var(--turq-d);background:#fff;
+  border:1px dashed var(--turq);border-radius:10px;padding:9px;cursor:pointer}
+.accadd:active{background:var(--sky)}
+/* ---- booked tab ---- */
+.bkempty{text-align:center;color:var(--muted);font-size:.9rem;padding:18px 8px;font-style:italic}
+.bkitem{padding:11px 0;border-bottom:1px solid var(--line)}
+.bkitem:first-of-type{padding-top:0}
+.bkitem:last-child{border-bottom:0;padding-bottom:0}
+.bkhead{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.bkname{font-size:1rem;font-weight:700;overflow-wrap:anywhere}
+.bkprice{font-size:.95rem;font-weight:700;color:var(--turq-d);white-space:nowrap}
+.bkprice small{font-size:.68rem;font-weight:600;color:var(--muted)}
+.bkmeta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:4px}
+.bkwhen{font-size:.78rem;color:var(--muted);font-weight:600}
+.bktag{font-size:.68rem;font-weight:700;color:var(--muted);background:#f4f7f7;border-radius:20px;padding:3px 9px}
+.bktag.main{background:var(--sky);color:var(--turq-d)}
+.bkcancel{font-size:.76rem;font-weight:600;color:#227a52}
+.bkcancel.soon{color:var(--coral-d)}
+.bkcancel.gone{color:var(--muted)}
+.bknote{margin-top:6px;font-size:.76rem;color:#5a4b2a;background:#fffaf0;border:1px solid var(--gold);border-radius:8px;padding:6px 9px}
+.bklink{display:inline-block;margin-top:7px;font-size:.76rem;font-weight:700;color:var(--turq-d);text-decoration:none}
+.bkdl{display:flex;align-items:baseline;justify-content:space-between;gap:4px 10px;flex-wrap:wrap;font-size:.82rem;padding:7px 0;border-bottom:1px dashed var(--line)}
+.bkdl:last-of-type{border-bottom:0}
+.bkdlname{font-weight:600;overflow-wrap:anywhere;flex:1 1 auto}
+.bkdlday{color:var(--muted);font-weight:500;font-size:.76rem}
+.bkdlleft{white-space:nowrap;font-size:.76rem;font-weight:700;color:#227a52}
+.bkdl.soon .bkdlleft{color:var(--coral-d)}
 .opt{margin:10px 0;border:1.5px dashed var(--gold);border-radius:14px;background:#fffdf5;overflow:hidden}
 .opthead{display:flex;align-items:center;gap:8px;padding:9px 12px;font-size:.8rem;font-weight:700;color:#a9761a;background:#fff8e6}
 .optbtns{display:flex;gap:8px;padding:10px 12px;flex-wrap:wrap}
