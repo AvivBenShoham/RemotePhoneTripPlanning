@@ -11,7 +11,7 @@ import { createContext, useContext, useEffect, useRef, useState, useCallback } f
 import { dbRef, remoteReady } from '../firebase/client';
 import { LS_KEY } from '../firebase/config';
 import { DEFAULT_TODO } from '../data/optionals';
-import { stableStr, mergeKeepingFocus } from '../lib/format';
+import { stableStr, mergeKeepingFocus, accNeedsStayMigration, migrateAccToStays } from '../lib/format';
 import { useLang } from './useLang';
 
 const defaultStore = { opt:{beachhop:"moron",slowbeach:"coson",night:"strip"}, book:{}, acc:{}, todo:{} };
@@ -183,6 +183,15 @@ export function StoreProvider({ children }) {
     });
     applyIncoming(Object.assign(clone(storeRef.current), { todo: seeded }));
   }, [store.todo, applyIncoming]);
+
+  // Fold day-keyed accommodation into one record per stay (you book the place,
+  // not the night). Runs through update() so the rewrite syncs to everyone, and
+  // is a no-op once every key is a stay id — including for clients that load
+  // after someone else migrated.
+  useEffect(() => {
+    if (!accNeedsStayMigration(store.acc)) return;
+    update(s => { s.acc = migrateAccToStays(s.acc); });
+  }, [store.acc, update]);
 
   const resetAll = useCallback(() => {
     if (!confirm(t('reset_confirm'))) return;

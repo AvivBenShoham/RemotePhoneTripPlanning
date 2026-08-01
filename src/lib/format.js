@@ -1,5 +1,6 @@
 // Formatting + derived-value helpers ported from the original planner.
 import { optionals, NIGHTLY_DEFAULT } from '../data/optionals.js';
+import { stays, STAY_IDS, stayOfDay } from '../data/stays.js';
 
 // HTML-escape is no longer needed for rendering (React escapes by default), but
 // esc() is kept for building map popup HTML and Google Maps popups.
@@ -37,14 +38,15 @@ export function stableStr(o){
 }
 
 // ---- accommodation options -------------------------------------------------
-// A night can hold SEVERAL candidate/booked options (e.g. two hotels held for
-// the same date while you decide). They live under `acc/<dayId>/options/<optId>`
-// and one of them is the `chosen` pick that counts toward the totals.
-// Records written by the older single-option version kept the fields flat on
-// `acc/<dayId>`; those are read as one option (`o1`) and rewritten into the
-// nested shape on the first edit (see ensureAccOptions).
-export const ACC_FIELDS = ['booked','name','price','link','cancelUntil','notes'];
-export const emptyAccOption = (ts) => ({ booked:false, name:'', price:'', link:'', cancelUntil:'', notes:'', ts: ts || 0 });
+// Accommodation is booked per STAY, not per night: one reservation covers every
+// consecutive night in the same place (see src/data/stays.js). A stay can hold
+// SEVERAL candidate/booked options (two hotels held for the same dates while you
+// decide). They live under `acc/<stayId>/options/<optId>` and one of them is the
+// `chosen` pick that counts toward the totals.
+// Older records were keyed by day — and older ones still kept the fields flat on
+// the record. Both are read here and rewritten by migrateAccToStays().
+export const ACC_FIELDS = ['booked','name','price','priceMode','link','cancelUntil','notes'];
+export const emptyAccOption = (ts) => ({ booked:false, name:'', price:'', priceMode:'night', link:'', cancelUntil:'', notes:'', ts: ts || 0 });
 
 // all options for a night, oldest first: [{id, booked, name, price, …}]
 export function accOptions(a){
@@ -67,8 +69,24 @@ export function accPrimary(a){
 }
 export function accBookedOptions(a){return accOptions(a).filter(o=>o.booked);}
 export function accAnyBooked(a){return accBookedOptions(a).length>0;}
-export function optPrice(o){return (o&&o.price!==''&&o.price!=null&&!isNaN(o.price))?Number(o.price):NIGHTLY_DEFAULT;}
-// migrate-in-place helper for store mutations: guarantees acc[dayId].options exists
+
+// A price is entered either per night or as the whole-stay total (priceMode);
+// nightly is what day totals use, total is what you actually paid.
+export const nightsOf = (n) => Math.max(1, Number(n) || 1);
+export function optHasPrice(o){return !!o&&o.price!==''&&o.price!=null&&!isNaN(o.price);}
+export function optNightly(o,nights){
+  if(!optHasPrice(o))return NIGHTLY_DEFAULT;
+  const v=Number(o.price);
+  return o.priceMode==='total' ? Math.round(v/nightsOf(nights)*100)/100 : v;
+}
+export function optTotal(o,nights){
+  if(!optHasPrice(o))return NIGHTLY_DEFAULT*nightsOf(nights);
+  return o.priceMode==='total' ? Number(o.price) : Number(o.price)*nightsOf(nights);   // entered total stays exact
+}
+// money that reads cleanly whether or not it divided evenly
+export function money(n){const v=Math.round(Number(n)*100)/100;return '$'+(Number.isInteger(v)?v.toLocaleString():v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}));}
+
+// migrate-in-place helper for store mutations: guarantees acc[stayId].options exists
 export function ensureAccOptions(s,dayId){
   const rec = s.acc[dayId] = s.acc[dayId] || {};
   if(!rec.options || typeof rec.options!=='object'){
@@ -85,8 +103,52 @@ export function nextOptId(rec){
   return 'o'+i;
 }
 
-// accommodation nightly value used in totals: the chosen option's price, else default $60
-export function accNightly(store,d){if(!d.stay)return 0;const p=accPrimary(store.acc[d.id]);return p?optPrice(p):NIGHTLY_DEFAULT;}
+// This night's share of the stay's booking: the chosen option's nightly rate
+// (a whole-stay price is divided across its nights), else the $60 default.
+export function accNightly(store,d){
+  const stay=stayOfDay[d.id];
+  if(!d.stay||!stay)return 0;
+  const p=accPrimary(store.acc[stay.id]);
+  return p?optNightly(p,stay.nights):NIGHTLY_DEFAULT;
+}
+
+// ---- day-keyed -> stay-keyed migration -------------------------------------
+// Accommodation used to be stored per day, so a 3-night stay could hold three
+// copies of the one booking. Fold every day of a stay into a single record,
+// dropping repeats of the same booking (matched on name/price/dates/link) and
+// keeping the pick. Deterministic and idempotent: two clients running it land on
+// the same result, and re-running it changes nothing.
+const optSig=(o)=>[String(o.name||'').trim().toLowerCase(),String(o.price||''),o.priceMode||'night',
+  String(o.cancelUntil||''),String(o.link||'').trim().toLowerCase(),String(o.notes||'').trim().toLowerCase()].join('|');
+const optIsBlank=(o)=>!ACC_FIELDS.some(f=>f==='priceMode'?false:(f==='booked'?!!o[f]:String(o[f]||'').trim()!==''));
+
+export function accNeedsStayMigration(acc){return Object.keys(acc||{}).some(k=>!STAY_IDS.has(k));}
+export function migrateAccToStays(acc){
+  const next={};
+  stays.forEach((stay)=>{
+    const merged=[];                      // [{sig, opt}] — already-migrated record first, then each night
+    let chosenSig=null;
+    [stay.id,...stay.dayIds].forEach((key)=>{
+      const rec=acc[key];
+      if(!rec)return;
+      accOptions(rec).forEach((o)=>{
+        if(optIsBlank(o))return;
+        const sig=optSig(o);
+        const prev=merged.find(m=>m.sig===sig);
+        if(prev){ if(o.booked)prev.opt.booked=true; if(rec.chosen===o.id&&!chosenSig)chosenSig=sig; return; }
+        const {id,ts,...fields}=o;
+        merged.push({sig,opt:{...emptyAccOption(0),...fields}});
+        if(rec.chosen===o.id&&!chosenSig)chosenSig=sig;
+      });
+    });
+    if(!merged.length)return;             // nothing was entered for this place
+    const options={};
+    merged.forEach((m,i)=>{options['o'+(i+1)]={...m.opt,ts:i};});
+    const ci=chosenSig?merged.findIndex(m=>m.sig===chosenSig):-1;
+    next[stay.id]={options,chosen:'o'+((ci>=0?ci:0)+1)};
+  });
+  return next;                            // keys outside the itinerary's stays are dropped
+}
 export function dayCost(store,d){
   let c=0;
   d.stops.forEach(s=>{

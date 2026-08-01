@@ -23,7 +23,8 @@
 import { pathToFileURL } from 'node:url';
 import nodemailer from 'nodemailer';
 import { FIREBASE_CONFIG, TRIP_ID, DB_PATH } from '../src/firebase/config.js';
-import { days } from '../src/data/days.js';
+import { stays } from '../src/data/stays.js';
+import { accOptions, optNightly, optTotal, optHasPrice, money } from '../src/lib/format.js';
 
 const LEAD_DAYS = [2, 1];                       // reminders fire this many days before the date
 const NOTIFY_PATH = 'trips/' + TRIP_ID + '_notify';
@@ -82,61 +83,58 @@ async function dbPatch(path, token, payload) {
 }
 
 // ---- trip state ------------------------------------------------------------
-// Mirrors src/lib/format.js: options live under acc/<dayId>/options/<optId>, and
-// records written by the older single-option version are read as one option.
-const ACC_FIELDS = ['booked', 'name', 'price', 'link', 'cancelUntil', 'notes'];
-function accOptions(rec) {
-  if (!rec || typeof rec !== 'object') return [];
-  const opts = rec.options;
-  if (opts && typeof opts === 'object') {
-    return Object.keys(opts).filter(k => opts[k] && typeof opts[k] === 'object')
-      .map(k => ({ id: k, ...opts[k] }))
-      .sort((x, y) => ((Number(x.ts) || 0) - (Number(y.ts) || 0)) || (x.id < y.id ? -1 : x.id > y.id ? 1 : 0));
-  }
-  if (ACC_FIELDS.some(f => rec[f] !== undefined)) return [{ id: 'o1', ...rec }];
-  return [];
-}
+// Accommodation is keyed by stay (one reservation covers all its nights); the
+// option reader, pricing and stay grouping are shared with the app so the mail
+// can never disagree with what the page shows.
 
 // every option whose free-cancellation date is LEAD_DAYS away
 function dueReminders(acc, today) {
   const out = [];
-  days.forEach((d) => {
-    if (!d.stay) return;
-    const opts = accOptions(acc[d.id]);
+  stays.forEach((stay) => {
+    const opts = accOptions(acc[stay.id]);
     opts.forEach((o, i) => {
       const left = daysUntil(o.cancelUntil, today);
       if (left == null || !LEAD_DAYS.includes(left)) return;
       out.push({
-        key: `${d.id}_${o.id}`,
+        key: `${stay.id}_${o.id}`,
         marker: `${o.cancelUntil}_${left}`,
         left,
-        day: d,
+        stay,
         opt: o,
         n: i + 1,
         of: opts.length,
       });
     });
   });
-  return out.sort((a, b) => a.left - b.left || a.day.id.localeCompare(b.day.id));
+  return out.sort((a, b) => a.left - b.left || a.stay.id.localeCompare(b.stay.id));
 }
 
 // ---- mail ------------------------------------------------------------------
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-const priceOf = (o) => (o.price !== '' && o.price != null && !isNaN(o.price)) ? `$${Number(o.price)}/night` : 'price not set';
+const nightsWord = (n) => `${n} night${n === 1 ? '' : 's'}`;
+// a reservation covers the whole stay, so quote the total and the nightly rate
+const priceOf = (o, nights) => optHasPrice(o)
+  ? `${money(optTotal(o, nights))} for ${nightsWord(nights)} (${money(optNightly(o, nights))}/night)`
+  : 'price not set';
 const whenText = (left) => left === 1 ? 'TOMORROW is the last day to cancel free' : `${left} days left to cancel free`;
+const whereText = (stay) => {
+  const nums = stay.dayNums;
+  const range = nums.length > 1 ? `Days ${nums[0]}–${nums[nums.length - 1]}` : `Day ${nums[0]}`;
+  return `${stay.name} · ${range} · ${nightsWord(stay.nights)}`;
+};
 
 function buildMail(items, today) {
   const soonest = Math.min(...items.map(i => i.left));
   const subject = items.length === 1
-    ? `⏳ ${whenText(soonest)} — ${items[0].opt.name || items[0].day.stay} (${items[0].day.n})`
+    ? `⏳ ${whenText(soonest)} — ${items[0].opt.name || items[0].stay.name} (${items[0].stay.name})`
     : `⏳ ${items.length} bookings reaching their free-cancellation date (soonest: ${soonest} day${soonest === 1 ? '' : 's'})`;
 
   const lines = items.map((it) => {
     const o = it.opt;
     const bits = [
-      `${it.day.n} · ${it.day.date} · ${it.day.stay}`,
+      whereText(it.stay),
       `${o.name || '(unnamed option)'}${it.of > 1 ? ` — option ${it.n} of ${it.of}` : ''}`,
-      `${priceOf(o)} · ${o.booked ? 'marked BOOKED' : 'not marked booked'}`,
+      `${priceOf(o, it.stay.nights)} · ${o.booked ? 'marked BOOKED' : 'not marked booked'}`,
       `Free cancellation until ${fmtDate(o.cancelUntil)} — ${whenText(it.left)}`,
     ];
     if (o.notes) bits.push(`Notes: ${o.notes}`);
@@ -159,9 +157,9 @@ function buildMail(items, today) {
   ${items.map((it) => {
     const o = it.opt;
     return `<div style="border:1px solid #dfe8e8;border-left:4px solid ${it.left === 1 ? '#e5533f' : '#f2b134'};border-radius:10px;padding:12px 14px;margin-bottom:12px">
-      <div style="font-size:12px;font-weight:700;color:#ff6b57;text-transform:uppercase;letter-spacing:.6px">${esc(it.day.n)} · ${esc(it.day.date)} · ${esc(it.day.stay)}</div>
+      <div style="font-size:12px;font-weight:700;color:#ff6b57;text-transform:uppercase;letter-spacing:.6px">${esc(whereText(it.stay))}</div>
       <div style="font-size:17px;font-weight:700;margin-top:3px">${esc(o.name || '(unnamed option)')}${it.of > 1 ? ` <span style="font-size:12px;font-weight:600;color:#5d6f78">option ${it.n} of ${it.of}</span>` : ''}</div>
-      <div style="font-size:14px;color:#5d6f78;margin-top:4px">${esc(priceOf(o))} · ${o.booked ? '✅ marked booked' : '🕓 not marked booked'}</div>
+      <div style="font-size:14px;color:#5d6f78;margin-top:4px">${esc(priceOf(o, it.stay.nights))} · ${o.booked ? '✅ marked booked' : '🕓 not marked booked'}</div>
       <div style="font-size:14px;font-weight:700;color:${it.left === 1 ? '#e5533f' : '#a9761a'};margin-top:6px">Free cancellation until ${esc(fmtDate(o.cancelUntil))} — ${esc(whenText(it.left))}</div>
       ${o.notes ? `<div style="font-size:13px;color:#5a4b2a;background:#fffaf0;border-radius:8px;padding:6px 9px;margin-top:8px">📝 ${esc(o.notes)}</div>` : ''}
       ${o.link ? `<div style="margin-top:8px"><a href="${esc(o.link)}" style="color:#07837c;font-weight:700;font-size:13px">🔗 Open booking</a></div>` : ''}
@@ -219,7 +217,7 @@ async function main() {
   if (!items.length) { log('All due reminders were already sent.'); return; }
 
   const mail = buildMail(items, today);
-  log(`${items.length} reminder(s) to send: ${items.map(i => `${i.day.id}/${i.opt.id}@${i.left}d`).join(', ')}`);
+  log(`${items.length} reminder(s) to send: ${items.map(i => `${i.stay.id}/${i.opt.id}@${i.left}d`).join(', ')}`);
 
   if (DRY_RUN) {
     log('\n--- DRY RUN, not sending ---');
@@ -248,4 +246,4 @@ async function main() {
 const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
 if (invokedDirectly) main().catch((e) => fail(e && e.message ? e.message : String(e)));
 
-export { accOptions, daysUntil, dueReminders, buildMail, todayInTz, LEAD_DAYS };
+export { daysUntil, dueReminders, buildMail, todayInTz, LEAD_DAYS };

@@ -1,6 +1,7 @@
 import { useStore } from '../hooks/useStore';
 import { useLang } from '../hooks/useLang';
 import { days } from '../data/days';
+import { stays } from '../data/stays';
 import { dayCost, transitMins, fmtMins, dayAttractions, shortAttr } from '../lib/format';
 
 export default function Overview() {
@@ -11,14 +12,6 @@ export default function Overview() {
   const nights = days.filter(d => d.stay).length;
   const tmins = transitMins(days);
   const transCost = days.reduce((s, d) => s + d.stops.reduce((a, x) => a + (x.leg !== undefined && x.cost ? x.cost : 0), 0), 0);
-
-  // group consecutive days by stay (skip fly-home null day)
-  const groups = []; let cur = null;
-  days.forEach(d => {
-    if (!d.stay) return;
-    if (cur && cur.stay === d.stay) { cur.days.push(d); }
-    else { cur = { stay: d.stay, days: [d], startN: d.n }; groups.push(cur); }
-  });
 
   const parts = [];
   days.forEach(d => {
@@ -38,16 +31,15 @@ export default function Overview() {
 
       <div className="ovcard">
         <h3>{t('ov_where_sleep')}</h3>
-        {groups.map((g, gi) => {
-          const n = g.days.length;
-          const dayNums = g.days.map(d => d.n.replace('Day ', '')).filter((v, i, a) => a.indexOf(v) === i);
-          const range = dayNums.length > 1
-            ? t('ov_days_range', { a: dayNums[0], b: dayNums[dayNums.length - 1] })
-            : t('ov_day_single', { a: dayNums[0] });
+        {stays.map((g, gi) => {
+          const n = g.nights;
+          const range = g.dayNums.length > 1
+            ? t('ov_days_range', { a: g.dayNums[0], b: g.dayNums[g.dayNums.length - 1] })
+            : t('ov_day_single', { a: g.dayNums[0] });
           const attrs = []; g.days.forEach(d => dayAttractions(store, d).forEach(a => attrs.push(a)));
           return (
             <div className="ovplace" key={gi}>
-              <div className="ph"><span className="pn">{g.stay}</span><span className="pd">{n} {t(n > 1 ? 'ov_nights_plural' : 'ov_night')} · {range}</span></div>
+              <div className="ph"><span className="pn">{g.name}</span><span className="pd">{n} {t(n > 1 ? 'ov_nights_plural' : 'ov_night')} · {range}</span></div>
               {attrs.length > 0 && (
                 <ul className="ovlist">
                   {attrs.map((a, ai) => <li key={ai}><span className="em">{a.emoji}</span>{shortAttr(a.label)}</li>)}

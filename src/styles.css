@@ -140,6 +140,15 @@ header.hero::after{content:"";position:absolute;right:-40px;top:-40px;width:200p
 .acc.booked{border-style:solid;background:#f0f9f4;border-color:var(--done)}
 .acc.booked .acchead{color:#227a52}
 .accopts{padding:3px 9px;border-radius:20px;background:#fff;border:1px solid var(--line);color:var(--muted);font-weight:700}
+/* one reservation covers every night of the stay — say so on each day's card */
+.accspan{margin:0 12px 8px;font-size:.72rem;font-weight:600;color:var(--muted)}
+.acc.open .accspan{margin-bottom:2px}
+/* is the price per night, or the whole-stay total? */
+.accmode{display:flex;gap:6px;margin-top:7px}
+.accmodebtn{flex:1;font-family:inherit;font-size:.7rem;font-weight:700;color:var(--muted);background:#fff;
+  border:1px solid var(--line);border-radius:8px;padding:6px 4px;cursor:pointer}
+.accmodebtn.on{background:var(--sky);border-color:var(--turq);color:var(--turq-d)}
+.accmodebtn:active{transform:scale(.98)}
 /* one candidate booking for a night (a night can hold several) */
 .accopt{border:1px solid var(--line);border-radius:10px;background:#fff;padding:9px 10px 11px;margin-top:9px}
 .accopt.isbooked{border-color:var(--done);background:#f7fdf9}

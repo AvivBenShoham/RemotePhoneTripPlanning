@@ -2,7 +2,7 @@
 
 An interactive **React (Vite)** trip planner for an 11-day Dominican Republic
 loop for two (Aug 11–21, 2026). Per-day Leaflet maps, live-updating cost totals,
-booking & accommodation trackers (several options per night), a **Booked** tab
+booking & accommodation trackers (one booking per place, several options each), a **Booked** tab
 listing everything already locked in, toggleable optional activities, a trip
 to-do checklist, and **email reminders before each free-cancellation date**. It
 builds to static files and deploys to GitHub Pages.
@@ -27,44 +27,59 @@ The app lives in `src/` (data in `src/data/`, Firebase config in
 `src/hooks/`). Unlike the old single HTML file, it now requires the dev server
 or a build — you can no longer just double-click a file to open it.
 
-### Accommodation cards
+### Accommodation cards — one booking per place
 
-Each night has an accommodation card holding one or more **options**. An option
-stores its place name, nightly price, booking link, a **free-cancellation-until
-date** (empty by default = no free cancellation), and free-text **booking
-notes** (e.g. *"free cancellation until 28/07"*). Every field is part of the
-shared state and **syncs live via Firebase** (see below), so the whole group
-sees the same details.
+**You book a place, not a night.** Consecutive days in the same place are one
+**stay** — Bayahibe (days 4–6) is a single three-night reservation — so
+accommodation is stored once per stay, not once per day. Every day of the stay
+shows the same card and edits the same booking; the card says which nights it
+covers (*"One booking for the whole stay · Days 4–6 · 3 nights"*).
 
-**Several options for the same night.** When you've held two (or three) places
-for one date while you decide — or booked both because they were refundable —
-tap **＋ Add another option** and fill in the second one. Each option has its own
-booked toggle, price and cancellation date, so a night can legitimately show
-*"✅ 2 booked"*.
+The trip's stays are derived from the itinerary in
+[`src/data/stays.js`](src/data/stays.js): Las Terrenas (3 nights), Bayahibe (3),
+Punta Cana / Bávaro (2), Santo Domingo (1).
 
-- One option is the **★ main pick** — the only one counted in the day total and
-  the trip total, so holding a backup never inflates your budget. Tap **Use as
-  main pick** on any option to switch. Without an explicit pick the first booked
-  option (or simply the first) is used.
-- **✕** removes an option; the last remaining one can't be removed (it just
-  empties).
-- Cards stay **collapsed by default** to keep day cards compact: the header
-  shows the option count, whether/how many are booked, and the main pick's
-  cancellation status, with any booking notes underneath. Tap to expand.
+A stay holds one or more **options** — each with a place name, price, booking
+link, a **free-cancellation-until date** (empty = no free cancellation), and
+free-text **booking notes**. Every field is shared state and **syncs live via
+Firebase**, so the whole group sees the same details.
 
-Under the hood an option lives at `acc/<dayId>/options/<optId>`, with the pick at
-`acc/<dayId>/chosen`. Cards saved by the earlier single-option version are read
-as one option (`o1`) and rewritten into the new shape the first time you edit
-them — nothing to migrate by hand.
+**Price per night or per stay.** A confirmation usually quotes the whole stay, so
+each option has a *per night* / *total for N nights* switch. Whichever you enter,
+the card shows both (*"$300 for 3 nights · $100/night"*); day totals always use
+the nightly share, so the trip total stays correct either way.
+
+**Several options for the same place.** When you've held two hotels for the same
+dates while you decide — or booked both because they were refundable — tap
+**＋ Add another option**. Each option has its own booked toggle, price and
+cancellation date, so a stay can legitimately show *"✅ 2 booked"*.
+
+- One option is the **★ main pick** — the only one counted in the day and trip
+  totals, so holding a backup never inflates your budget. Tap **Use as main
+  pick** to switch; without an explicit pick the first booked option (or simply
+  the first) is used.
+- **✕** removes an option; the last one can't be removed (it just empties).
+- Cards stay **collapsed by default**: the header shows the option count, how
+  many are booked, and the main pick's cancellation status, with booking notes
+  underneath. Tap to expand.
+
+Storage is `acc/<stayId>/options/<optId>`, with the pick at
+`acc/<stayId>/chosen` and a readable stay id (`bayahibe`, `punta-cana-bavaro`).
+Anything saved by an earlier version — day-keyed records, or the original flat
+single-option shape — is folded into per-stay bookings automatically on load:
+repeats of the same booking across a stay's nights collapse into one (matched on
+name, price, dates, link and notes), genuinely different ones become separate
+options, and the main pick is preserved. The rewrite is idempotent and syncs, so
+whoever opens the page first migrates it for everyone.
 
 ### ✅ Booked tab
 
 A third tab collects **everything already booked** in one place, so you don't
 have to scroll the itinerary to see what's locked in:
 
-- **Booked stays** — every booked accommodation option (including the extra ones
-  held for the same night), with its night, price, notes, booking link, and
-  whether it's the main pick or a duplicate to cancel.
+- **Booked stays** — every booked reservation (including extras held for the same
+  place), with the nights it covers, its stay total and nightly rate, notes,
+  booking link, and whether it's the main pick or a duplicate to cancel.
 - **Booked activities & tours** — every booking tracker marked done, with its
   agency and the price actually paid.
 - **Free-cancellation deadlines** — the still-open ones, soonest first, turning
@@ -230,7 +245,8 @@ state, and mails whatever is due. It runs at **13:00 UTC (09:00 in the Dominican
 Republic)**; you can also trigger it by hand from the **Actions** tab.
 
 Every option with a cancellation date is covered, booked or not (the mail says
-which). Each send is recorded under `trips/<TRIP_ID>_notify`, so a re-run — or
+which), and each reminder names the place and the nights it covers — matching
+how bookings are stored. Each send is recorded under `trips/<TRIP_ID>_notify`, so a re-run — or
 GitHub firing the schedule twice — never sends the same reminder again.
 
 ### Setup (repo secrets)

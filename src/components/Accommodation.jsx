@@ -2,43 +2,50 @@ import { useState } from 'react';
 import { useStore } from '../hooks/useStore';
 import { useLang } from '../hooks/useLang';
 import { NIGHTLY_DEFAULT } from '../data/optionals';
+import { stayOfDay } from '../data/stays';
 import {
-  accShowing, accCancelText, accCancelClass, accOptions, accPrimary, accAnyBooked,
-  accBookedOptions, emptyAccOption, ensureAccOptions, nextOptId,
+  accCancelText, accCancelClass, accOptions, accPrimary, accAnyBooked, accBookedOptions,
+  emptyAccOption, ensureAccOptions, nextOptId, optNightly, optTotal, optHasPrice, money,
 } from '../lib/format';
 
-// One night's accommodation. A night can hold several options (two hotels held
-// for the same date while you decide); one is the "main pick" that counts
-// toward the day/trip totals.
+// The booking for one STAY — a place, not a night. Every day of the stay shows
+// the same card and edits the same record, because one reservation covers all
+// of its nights. A stay can hold several candidate options; one is the main pick
+// that counts toward the totals.
 export default function Accommodation({ d }) {
   const { store, update } = useStore();
   const { t } = useLang();
   const [open, setOpen] = useState(false);
-  if (!d.stay) return null;
+  const stay = stayOfDay[d.id];
+  if (!d.stay || !stay) return null;
 
-  const a = store.acc[d.id];
-  // a night that has never been touched still shows one blank option form
+  const nights = stay.nights;
+  const a = store.acc[stay.id];
+  // a stay that has never been touched still shows one blank option form
   const opts = accOptions(a);
   const shown = opts.length ? opts : [{ id: 'o1', ...emptyAccOption(0) }];
   const primary = accPrimary(a) || shown[0];
   const booked = accBookedOptions(a);
   const anyBooked = accAnyBooked(a);
   const notes = shown.map(o => o.notes).filter(Boolean);
+  const range = stay.dayNums.length > 1
+    ? t('ov_days_range', { a: stay.dayNums[0], b: stay.dayNums[stay.dayNums.length - 1] })
+    : t('ov_day_single', { a: stay.dayNums[0] });
 
   const setField = (optId, f, v) => update(s => {
-    const rec = ensureAccOptions(s, d.id);
+    const rec = ensureAccOptions(s, stay.id);
     rec.options[optId] = rec.options[optId] || emptyAccOption(Date.now());
     rec.options[optId][f] = v;
   });
-  const setChosen = (optId) => update(s => { ensureAccOptions(s, d.id).chosen = optId; });
+  const setChosen = (optId) => update(s => { ensureAccOptions(s, stay.id).chosen = optId; });
   const addOption = () => update(s => {
-    const rec = ensureAccOptions(s, d.id);
+    const rec = ensureAccOptions(s, stay.id);
     rec.options[nextOptId(rec)] = emptyAccOption(Date.now());
   });
   const removeOption = (optId) => {
     if (!confirm(t('acc_remove_confirm'))) return;
     update(s => {
-      const rec = ensureAccOptions(s, d.id);
+      const rec = ensureAccOptions(s, stay.id);
       delete rec.options[optId];
       if (!Object.keys(rec.options).length) rec.options[nextOptId(rec)] = emptyAccOption(Date.now());
       if (rec.chosen === optId) rec.chosen = Object.keys(rec.options)[0] || '';
@@ -48,7 +55,7 @@ export default function Accommodation({ d }) {
   return (
     <div className={'acc' + (anyBooked ? ' booked' : '') + (open ? ' open' : '')}>
       <div className="acchead" onClick={() => setOpen(o => !o)}>
-        <span className="acctitle">{t('acc_title', { stay: d.stay })}</span>
+        <span className="acctitle">{t('acc_title', { stay: stay.name })}</span>
         <span className="accsum">
           {shown.length > 1 && <span className="accopts">{t('acc_options_count', { n: shown.length })}</span>}
           <span className={'accstatus' + (anyBooked ? ' on' : '')}>
@@ -58,11 +65,13 @@ export default function Accommodation({ d }) {
         </span>
         <span className="accchev">▾</span>
       </div>
+      <div className="accspan">{t('acc_covers', { range, n: nights, nights: t(nights > 1 ? 'ov_nights_plural' : 'ov_night') })}</div>
       {notes.length > 0 && <div>{notes.map((n, i) => <div className="accnote" key={i}>📝 {n}</div>)}</div>}
       <div className="accbody">
         {shown.map((o, i) => {
           const isMain = o.id === primary.id;
-          const p = `acc/${d.id}/options/${o.id}`;
+          const p = `acc/${stay.id}/options/${o.id}`;
+          const perStay = o.priceMode === 'total';
           return (
             <div className={'accopt' + (o.booked ? ' isbooked' : '') + (isMain ? ' ismain' : '')} key={o.id}>
               <div className="accopthead">
@@ -85,7 +94,9 @@ export default function Accommodation({ d }) {
                 <span className="swlbl">{o.booked ? t('acc_booked_short') : t('acc_not_booked_short')}</span>
               </div>
               <div className="accprice-line">
-                {t('acc_nightly_rate')} <span>{accShowing(o, t)}</span>
+                {optHasPrice(o)
+                  ? t('acc_price_breakdown', { total: money(optTotal(o, nights)), n: nights, nightly: money(optNightly(o, nights)) })
+                  : t('acc_price_default', { nightly: money(NIGHTLY_DEFAULT) })}
                 {isMain && <em className="accintotal"> · {t('acc_in_total')}</em>}
               </div>
               <div className="btrow">
@@ -93,10 +104,17 @@ export default function Accommodation({ d }) {
                   <input type="text" data-sync={`${p}/name`} value={o.name || ''} placeholder={t('acc_place_name_ph')}
                     onChange={e => setField(o.id, 'name', e.target.value)} />
                 </label>
-                <label>{t('acc_price_night')}
+                <label>{perStay ? t('acc_price_stay', { n: nights }) : t('acc_price_night')}
                   <input type="number" inputMode="decimal" data-sync={`${p}/price`} value={o.price !== '' && o.price != null ? o.price : ''}
-                    placeholder={NIGHTLY_DEFAULT} onChange={e => setField(o.id, 'price', e.target.value)} />
+                    placeholder={perStay ? NIGHTLY_DEFAULT * nights : NIGHTLY_DEFAULT} onChange={e => setField(o.id, 'price', e.target.value)} />
                 </label>
+              </div>
+              {/* what the number above means — a booking confirmation usually quotes the whole stay */}
+              <div className="accmode">
+                <button type="button" className={'accmodebtn' + (perStay ? '' : ' on')}
+                  onClick={() => setField(o.id, 'priceMode', 'night')}>{t('acc_mode_night')}</button>
+                <button type="button" className={'accmodebtn' + (perStay ? ' on' : '')}
+                  onClick={() => setField(o.id, 'priceMode', 'total')}>{t('acc_mode_total', { n: nights })}</button>
               </div>
               <div className="btrow">
                 <label>{t('acc_free_cancel_until')}
